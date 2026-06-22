@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wedding Entourage Package Calculator</title>
+<style>
+  /* ── Reset & base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #f5f0eb;
+    color: #2c2c2c;
+    padding: 16px;
+    min-height: 100vh;
+  }
+
+  h1 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #1a1a1a;
+    margin-bottom: 18px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #c9a96e;
+  }
+
+  /* ── Sections ── */
+  .section {
+    background: #fff;
+    border: 1px solid #e0d6c8;
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+
+  .section h3 {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #8a6d3b;
+    margin-bottom: 12px;
+  }
+
+  /* ── Loading overlay ── */
+  #loadingOverlay {
+    position: fixed; inset: 0;
+    background: rgba(245,240,235,0.92);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 999;
+    font-size: 1rem;
+    color: #8a6d3b;
+    gap: 12px;
+  }
+  #loadingOverlay .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid #e0d6c8;
+    border-top-color: #c9a96e;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Form elements ── */
+  select, input[type="number"], input[type="text"] {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid #d0c4b0;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    background: #fff;
+    color: #2c2c2c;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a6d3b'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 9px center;
+    padding-right: 24px;
+  }
+  select:focus, input:focus {
+    outline: none;
+    border-color: #c9a96e;
+    box-shadow: 0 0 0 2px rgba(201,169,110,0.18);
+  }
+  select:disabled { background-color: #f5f0eb; color: #aaa; cursor: not-allowed; }
+
+  /* ── Package row grid ── */
+  .pkg-header, .pkg-row {
+    display: grid;
+    grid-template-columns: 1.6fr 72px 108px 108px;
+    gap: 8px;
+    align-items: start;
+    margin-bottom: 8px;
+  }
+  .pkg-header { align-items: center; margin-bottom: 6px; }
+  .pkg-header > div {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #999;
+  }
+  .pkg-row > div { padding-top: 2px; }
+  .item-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #2c2c2c;
+    margin-bottom: 5px;
+  }
+  .unit-price {
+    font-size: 0.85rem;
+    padding-top: 9px;
+    color: #555;
+  }
+  .subtotal-val {
+    font-size: 0.85rem;
+    padding-top: 9px;
+    font-weight: 600;
+    color: #2c2c2c;
+  }
+
+  /* ── Gown item pickers ── */
+  .gown-pickers { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+  .gown-picker-set {
+    background: #faf7f3;
+    border: 1px solid #e8dece;
+    border-radius: 7px;
+    padding: 8px;
+  }
+  .gown-picker-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #b08a50;
+    margin-bottom: 6px;
+  }
+  .gown-picker-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  /* ── Searchable select wrapper ── */
+  .search-select-wrap { position: relative; }
+  .search-select-wrap input.search-input {
+    padding-right: 28px;
+  }
+  .search-select-wrap .dropdown-arrow {
+    position: absolute;
+    right: 9px; top: 50%; transform: translateY(-50%);
+    pointer-events: none;
+    color: #8a6d3b; font-size: 0.7rem;
+  }
+  .search-select-wrap .options-list {
+    position: absolute;
+    top: 100%; left: 0; right: 0;
+    background: #fff;
+    border: 1px solid #d0c4b0;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    max-height: 180px;
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+  }
+  .search-select-wrap .options-list.open { display: block; }
+  .search-select-wrap .options-list .opt {
+    padding: 7px 10px;
+    font-size: 0.83rem;
+    cursor: pointer;
+    color: #2c2c2c;
+  }
+  .search-select-wrap .options-list .opt:hover,
+  .search-select-wrap .options-list .opt.highlighted { background: #f5f0eb; }
+  .search-select-wrap .options-list .opt.no-results {
+    color: #aaa; font-style: italic; cursor: default;
+  }
+  .search-select-wrap.required-empty input.search-input {
+    border-color: #e06060;
+  }
+
+  /* ── Add-on section ── */
+  .addon-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr 64px 90px 90px 36px;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .addon-header > div {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #999;
+  }
+  .addon-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 64px 90px 90px 36px;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .addon-subtotal-val {
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: #2c2c2c;
+  }
+  .addon-regular-val {
+    font-size: 0.83rem;
+    color: #555;
+  }
+
+  /* ── Buttons ── */
+  .btn-add {
+    background: #2c2c2c;
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 4px;
+    letter-spacing: 0.04em;
+  }
+  .btn-add:hover { background: #444; }
+  .btn-remove {
+    background: #f0ebe4;
+    border: 1px solid #d0c4b0;
+    border-radius: 5px;
+    width: 30px; height: 30px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #888;
+  }
+  .btn-remove:hover { background: #f5dede; color: #c00; }
+
+  /* ── Totals ── */
+  .totals {
+    background: #2c2c2c;
+    color: #f5f0eb;
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .totals .total-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: #c9b89a;
+  }
+  .totals .total-row.grand {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #c9a96e;
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid #444;
+  }
+
+  /* ── Copy summary button ── */
+  .copy-wrap {
+    margin-top: 12px;
+    text-align: right;
+  }
+  .btn-copy {
+    background: transparent;
+    border: 1.5px solid #c9a96e;
+    color: #8a6d3b;
+    border-radius: 7px;
+    padding: 7px 16px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+  }
+  .btn-copy:hover { background: #f5f0eb; }
+  .copy-toast {
+    display: inline-block;
+    font-size: 0.78rem;
+    color: #5a9e6f;
+    margin-right: 10px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .copy-toast.show { opacity: 1; }
+
+  /* ── Required badge ── */
+  .req-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    color: #e06060;
+    font-weight: 700;
+    margin-left: 5px;
+    vertical-align: middle;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 540px) {
+    .pkg-header, .pkg-row {
+      grid-template-columns: 1fr 56px 88px 88px;
+    }
+    .addon-header, .addon-row {
+      grid-template-columns: 1fr 1fr 48px 78px 78px 30px;
+      gap: 5px;
+    }
+    .gown-picker-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <div>Loading inventory data…</div>
+</div>
+
+<h1>Wedding Entourage Package Calculator</h1>
+
+<!-- ── PACKAGE SELECTOR ── -->
+<div class="section">
+  <h3>Package</h3>
+  <div style="display:grid;gap:10px;">
+    <select id="packageType">
+      <option value="5200">PACKAGE 1C (SPANDEX)</option>
+      <option value="6200">PACKAGE 2C (CHIFFON)</option>
+      <option value="7000">PACKAGE 3C (SPANDEX)</option>
+      <option value="8200">PACKAGE 4C (CHIFFON)</option>
+    </select>
+    <select id="packageColor">
+      <option value="">— Select Package Color —</option>
+    </select>
+  </div>
+</div>
+
+<!-- ── PACKAGE ITEMS ── -->
+<div class="section">
+  <h3>Package Items</h3>
+  <div class="pkg-header">
+    <div>Item</div>
+    <div>Qty</div>
+    <div>Unit Price</div>
+    <div>Subtotal</div>
+  </div>
+  <div id="itemRows"></div>
+</div>
+
+<!-- ── ADD-ONS ── -->
+<div class="section">
+  <h3>Add-On Items <span style="font-weight:400;color:#b08a50;font-size:0.75rem;">(20% OFF Regular Rate)</span></h3>
+  <div class="addon-header">
+    <div>Category</div>
+    <div>Item Code</div>
+    <div>Qty</div>
+    <div>Regular</div>
+    <div>Charged</div>
+    <div></div>
+  </div>
+  <div id="addonRows"></div>
+  <button class="btn-add" id="addAddonBtn">+ Add Item</button>
+</div>
+
+<!-- ── TOTALS ── -->
+<div class="totals">
+  <div class="total-row"><span>Package Subtotal</span><span>₱<span id="packageSubtotal">0.00</span></span></div>
+  <div class="total-row"><span>Add-On Subtotal</span><span>₱<span id="addonSubtotal">0.00</span></span></div>
+  <div class="total-row grand"><span>Grand Total</span><span>₱<span id="grandTotal">0.00</span></span></div>
+</div>
+
+<div class="copy-wrap">
+  <span class="copy-toast" id="copyToast">Copied!</span>
+  <button class="btn-copy" id="copyBtn">Copy Summary</button>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════
+   CONFIG
+══════════════════════════════════════════════ */
+const SHEET_ID = "1-QD9UJ99Rjl1JPlBdKPo7hz5MBOiJKkMyD-qWlD520s";
+
+// All sheet tab names (from the spreadsheet)
+const ALL_SHEETS = [
+  "BGS","BGI","PGS","PGI","MOH","BMG","FGG","PGC","FIL",
+  "MG","CD","MS","CS","PET-#","PET","BCPO","BOY","BPSC",
+  "BPO","BPOL","BPS","COAT BARONG","BCC","BPOC","VST",
+  "S-UPPER","POLO","ACC","PEN","PANTS","PACKAGE COLORS"
+];
+
+// Category restrictions
+const BG_CATS  = ["BGI","BGS","PGI","PGS","CD"];
+const MG_CATS  = ["MG","PGI","PGS","CD","BGI","BGS"];
+
+/* ══════════════════════════════════════════════
+   PACKAGE PRICES
+══════════════════════════════════════════════ */
+const packageNames = {
+  "5200": "PACKAGE 1C (SPANDEX)",
+  "6200": "PACKAGE 2C (CHIFFON)",
+  "7000": "PACKAGE 3C (SPANDEX)",
+  "8200": "PACKAGE 4C (CHIFFON)"
+};
+
+const packagePrices = {
+  "5200": {
+    bridal_gown: ["Bridal Gown", 600.00],
+    groom:       ["Groom Barong", 175.00],
+    maid:        ["Maid of Honor", 280.50],
+    bridesmaid:  ["Bridesmaid", 280.50],
+    flower:      ["Flower Girl", 196.35],
+    child:       ["BPO Child", 84.15],
+    mother:      ["Mother's Gown", 252.45],
+    men:         ["Men's Barong", 100.98]
+  },
+  "6200": {
+    bridal_gown: ["Bridal Gown", 659.04],
+    groom:       ["Groom Barong", 192.22],
+    maid:        ["Maid of Honor", 384.44],
+    bridesmaid:  ["Bridesmaid", 384.44],
+    flower:      ["Flower Girl", 302.06],
+    child:       ["BPO Child", 82.38],
+    mother:      ["Mother's Gown", 247.14],
+    men:         ["Men's Barong", 98.86]
+  },
+  "7000": {
+    bridal_gown: ["Bridal Gown", 615.48],
+    groom:       ["Groom Suit", 461.61],
+    maid:        ["Maid of Honor", 256.45],
+    bridesmaid:  ["Bridesmaid", 256.45],
+    flower:      ["Flower Girl", 179.52],
+    child:       ["Child Suit", 256.45],
+    mother:      ["Mother's Gown", 230.81],
+    men:         ["Men's Set", 282.10]
+  },
+  "8200": {
+    bridal_gown: ["Bridal Gown", 620.88],
+    groom:       ["Groom Suit", 465.66],
+    maid:        ["Maid of Honor", 362.18],
+    bridesmaid:  ["Bridesmaid", 362.18],
+    flower:      ["Flower Girl", 284.57],
+    child:       ["Child Suit", 258.70],
+    mother:      ["Mother's Gown", 232.83],
+    men:         ["Men's Set", 284.57]
+  }
+};
+
+const pkgKeys = Object.keys(packagePrices["5200"]);
+
+/* ══════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════ */
+// sheetData[sheetName] = [ { code, rentalRate }, ... ]
+const sheetData = {};
+let dataReady = false;
+
+/* ══════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════ */
+function money(x) {
+  return Number(x || 0).toLocaleString("en-PH", {
+    minimumFractionDigits: 2, maximumFractionDigits: 2
+  });
+}
+function num(v) {
+  const n = parseFloat(v);
+  return isNaN(n) ? 0 : n;
+}
+
+/* ══════════════════════════════════════════════
+   FETCH SHEET DATA
+══════════════════════════════════════════════ */
+async function fetchSheet(sheetName) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+  const res = await fetch(url);
+  const text = await res.text();
+  // Strip Google's JSONP wrapper: google.visualization.Query.setResponse({...});
+  const json = JSON.parse(text.replace(/^[^{]*/, "").replace(/\);?\s*$/, ""));
+  const rows = json.table?.rows || [];
+  const cols = json.table?.cols || [];
+
+  // Find column indices: col A = 0 (PRODUCT NAME / item code), col D = 3 (RENTAL RATE)
+  // The gviz response preserves column order
+  const items = [];
+  for (const row of rows) {
+    const codeCell = row.c?.[0];
+    const rateCell = row.c?.[3];
+    const code = codeCell?.v != null ? String(codeCell.v).trim() : "";
+    // Skip header row and empty codes
+    if (!code || code.toUpperCase() === "PRODUCT NAME") continue;
+    let rentalRate = null;
+    if (rateCell?.v != null && rateCell.v !== "" && rateCell.v !== 0) {
+      rentalRate = parseFloat(String(rateCell.v).replace(/[^0-9.]/g, "")) || null;
+      if (rentalRate === 0) rentalRate = null;
+    }
+    items.push({ code, rentalRate });
+  }
+  return items;
+}
+
+async function loadAllSheets() {
+  // Fetch all sheets in parallel
+  const results = await Promise.allSettled(
+    ALL_SHEETS.map(name => fetchSheet(name).then(items => ({ name, items })))
+  );
+  for (const r of results) {
+    if (r.status === "fulfilled") {
+      sheetData[r.value.name] = r.value.items;
+    } else {
+      // Fallback: empty list if a sheet fails
+      const name = ALL_SHEETS[results.indexOf(r)];
+      sheetData[name] = [];
+      console.warn("Failed to load sheet:", r.reason);
+    }
+  }
+
+  // Populate Package Colors dropdown
+  populateColorDropdown();
+  dataReady = true;
+  document.getElementById("loadingOverlay").style.display = "none";
+  render();
+}
+
+/* ══════════════════════════════════════════════
+   PACKAGE COLOR DROPDOWN
+══════════════════════════════════════════════ */
+function populateColorDropdown() {
+  const sel = document.getElementById("packageColor");
+  const colors = sheetData["PACKAGE COLORS"] || [];
+  // Clear existing options except placeholder
+  while (sel.options.length > 1) sel.remove(1);
+  for (const { code } of colors) {
+    if (!code) continue;
+    const opt = document.createElement("option");
+    opt.value = code;
+    opt.textContent = code;
+    sel.appendChild(opt);
+  }
+}
+
+/* ══════════════════════════════════════════════
+   SEARCHABLE SELECT COMPONENT
+══════════════════════════════════════════════ */
+function createSearchSelect({ placeholder, options, onSelect, required = false }) {
+  // options: array of strings
+  const wrap = document.createElement("div");
+  wrap.className = "search-select-wrap";
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "search-input";
+  input.placeholder = placeholder;
+  input.readOnly = false;
+  input.autocomplete = "off";
+
+  const arrow = document.createElement("span");
+  arrow.className = "dropdown-arrow";
+  arrow.textContent = "▾";
+
+  const list = document.createElement("div");
+  list.className = "options-list";
+
+  wrap.appendChild(input);
+  wrap.appendChild(arrow);
+  wrap.appendChild(list);
+
+  // Internal state
+  let selectedValue = "";
+  let allOptions = [...options];
+
+  function buildList(filter) {
+    list.innerHTML = "";
+    const lower = filter.toLowerCase();
+    const filtered = allOptions.filter(o => o.toLowerCase().includes(lower));
+    if (!filtered.length) {
+      const d = document.createElement("div");
+      d.className = "opt no-results";
+      d.textContent = "No results";
+      list.appendChild(d);
+    } else {
+      for (const o of filtered) {
+        const d = document.createElement("div");
+        d.className = "opt";
+        d.textContent = o;
+        d.addEventListener("mousedown", e => {
+          e.preventDefault();
+          selectedValue = o;
+          input.value = o;
+          if (required) wrap.classList.remove("required-empty");
+          list.classList.remove("open");
+          onSelect(o);
+        });
+        list.appendChild(d);
+      }
+    }
+  }
+
+  input.addEventListener("focus", () => {
+    buildList(input.value);
+    list.classList.add("open");
+  });
+  input.addEventListener("input", () => {
+    selectedValue = "";
+    buildList(input.value);
+    list.classList.add("open");
+  });
+  input.addEventListener("blur", () => {
+    setTimeout(() => {
+      list.classList.remove("open");
+      // If user typed something not matching, revert
+      if (input.value !== selectedValue) {
+        input.value = selectedValue;
+      }
+      if (required && !selectedValue) wrap.classList.add("required-empty");
+    }, 150);
+  });
+
+  // Public API
+  wrap.getValue = () => selectedValue;
+  wrap.setValue = (v) => {
+    selectedValue = v;
+    input.value = v;
+  };
+  wrap.setOptions = (newOptions) => {
+    allOptions = [...newOptions];
+    selectedValue = "";
+    input.value = "";
+  };
+  wrap.markRequired = () => {
+    if (!selectedValue) wrap.classList.add("required-empty");
+  };
+
+  return wrap;
+}
+
+/* ══════════════════════════════════════════════
+   GOWN PICKERS (Bridal Gown + Mother's Gown)
+══════════════════════════════════════════════ */
+function buildGownPickers(containerId, qty, allowedCats, labelPrefix) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = "";
+  if (qty <= 0) return;
+
+  for (let i = 0; i < qty; i++) {
+    const set = document.createElement("div");
+    set.className = "gown-picker-set";
+
+    const label = document.createElement("div");
+    label.className = "gown-picker-label";
+    label.textContent = qty === 1 ? labelPrefix + " Item Code" : labelPrefix + " #" + (i + 1) + " Item Code";
+    set.appendChild(label);
+
+    const row = document.createElement("div");
+    row.className = "gown-picker-row";
+
+    // Category dropdown (native select — not many options)
+    const catWrap = document.createElement("div");
+    const catSel = document.createElement("select");
+    catSel.className = "gown-cat-sel";
+    const defOpt = document.createElement("option");
+    defOpt.value = "";
+    defOpt.textContent = "— Category —";
+    catSel.appendChild(defOpt);
+    for (const cat of allowedCats) {
+      const o = document.createElement("option");
+      o.value = cat;
+      o.textContent = cat;
+      catSel.appendChild(o);
+    }
+    catWrap.appendChild(catSel);
+
+    // Item code searchable select
+    const itemWrap = document.createElement("div");
+    const itemSearch = createSearchSelect({
+      placeholder: "— Item Code —",
+      options: [],
+      onSelect: () => calc(),
+      required: true
+    });
+    itemSearch.classList.add("gown-item-sel");
+    itemWrap.appendChild(itemSearch);
+
+    catSel.addEventListener("change", () => {
+      const cat = catSel.value;
+      if (cat && sheetData[cat]) {
+        const codes = sheetData[cat].map(r => r.code);
+        itemSearch.setOptions(codes);
+      } else {
+        itemSearch.setOptions([]);
+      }
+      calc();
+    });
+
+    row.appendChild(catWrap);
+    row.appendChild(itemWrap);
+    set.appendChild(row);
+    container.appendChild(set);
+  }
+}
+
+/* ══════════════════════════════════════════════
+   RENDER PACKAGE ITEMS
+══════════════════════════════════════════════ */
+function render() {
+  const pkg = document.getElementById("packageType").value;
+  const wrap = document.getElementById("itemRows");
+  wrap.innerHTML = "";
+
+  pkgKeys.forEach(k => {
+    const [name, price] = packagePrices[pkg][k];
+
+    const row = document.createElement("div");
+    row.className = "pkg-row";
+    row.dataset.k = k;
+
+    // Col 1: label + optional gown pickers
+    const labelCol = document.createElement("div");
+
+    const itemLabel = document.createElement("div");
+    itemLabel.className = "item-label";
+    itemLabel.innerHTML = name;
+
+    if (k === "bridal_gown") {
+      itemLabel.innerHTML += `<span class="req-badge">★ Required</span>`;
+    }
+    if (k === "mother") {
+      itemLabel.innerHTML += `<span class="req-badge">★ Required</span>`;
+    }
+
+    labelCol.appendChild(itemLabel);
+
+    // Gown picker containers
+    if (k === "bridal_gown") {
+      const pickerContainer = document.createElement("div");
+      pickerContainer.id = "bgPickers";
+      pickerContainer.className = "gown-pickers";
+      labelCol.appendChild(pickerContainer);
+    }
+    if (k === "mother") {
+      const pickerContainer = document.createElement("div");
+      pickerContainer.id = "mgPickers";
+      pickerContainer.className = "gown-pickers";
+      labelCol.appendChild(pickerContainer);
+    }
+    if (k === "groom" && (pkg === "7000" || pkg === "8200")) {
+      const pickerContainer = document.createElement("div");
+      pickerContainer.id = "groomPickers";
+      pickerContainer.className = "gown-pickers";
+      labelCol.appendChild(pickerContainer);
+    }
+
+    // Col 2: Quantity
+    const qtyCol = document.createElement("div");
+    const qtyInput = document.createElement("input");
+    qtyInput.type = "number";
+    qtyInput.min = "0";
+    qtyInput.step = "1";
+    qtyInput.value = "0";
+    qtyInput.dataset.k = k;
+    qtyInput.className = "package-qty";
+    qtyCol.appendChild(qtyInput);
+
+    // Col 3: Unit price
+    const priceCol = document.createElement("div");
+    priceCol.className = "unit-price";
+    priceCol.innerHTML = `₱&nbsp;${money(price)}`;
+
+    // Col 4: Subtotal
+    const subCol = document.createElement("div");
+    subCol.className = "subtotal-val";
+    subCol.innerHTML = `₱&nbsp;<span id="sub_${k}">0.00</span>`;
+
+    row.appendChild(labelCol);
+    row.appendChild(qtyCol);
+    row.appendChild(priceCol);
+    row.appendChild(subCol);
+    wrap.appendChild(row);
+
+    // Qty change → rebuild gown pickers if needed
+    qtyInput.addEventListener("input", () => {
+      const q = Math.max(0, parseInt(qtyInput.value) || 0);
+      if (k === "bridal_gown") buildGownPickers("bgPickers", q, BG_CATS, "Bridal Gown");
+      if (k === "mother")       buildGownPickers("mgPickers", q, MG_CATS, "Mother's Gown");
+      calc();
+    });
+  });
+
+  calc();
+}
+
+/* ══════════════════════════════════════════════
+   ADD-ON ROWS
+══════════════════════════════════════════════ */
+const ADDON_CATS = ALL_SHEETS.filter(s => s !== "PACKAGE COLORS");
+
+function addAddonRow() {
+  const row = document.createElement("div");
+  row.className = "addon-row";
+
+  // Col 1: Category
+  const catSel = document.createElement("select");
+  catSel.className = "addon-cat";
+  const defOpt = document.createElement("option");
+  defOpt.value = ""; defOpt.textContent = "— Category —";
+  catSel.appendChild(defOpt);
+  for (const cat of ADDON_CATS) {
+    const o = document.createElement("option");
+    o.value = cat; o.textContent = cat;
+    catSel.appendChild(o);
+  }
+
+  // Col 2: Item code searchable
+  const itemSearch = createSearchSelect({
+    placeholder: "— Item Code —",
+    options: [],
+    onSelect: (code) => {
+      // Auto-fill rental rate
+      const cat = catSel.value;
+      const items = sheetData[cat] || [];
+      const found = items.find(i => i.code === code);
+      if (found && found.rentalRate != null) {
+        row._rentalRate = found.rentalRate;
+        regularSpan.textContent = "₱ " + money(found.rentalRate);
+      } else {
+        row._rentalRate = 0;
+        regularSpan.textContent = "—";
+      }
+      calc();
+    }
+  });
+
+  catSel.addEventListener("change", () => {
+    const cat = catSel.value;
+    if (cat && sheetData[cat]) {
+      const codes = sheetData[cat].map(r => r.code);
+      itemSearch.setOptions(codes);
+    } else {
+      itemSearch.setOptions([]);
+    }
+    row._rentalRate = 0;
+    regularSpan.textContent = "—";
+    calc();
+  });
+
+  // Col 3: Quantity
+  const qtyInput = document.createElement("input");
+  qtyInput.type = "number";
+  qtyInput.min = "1";
+  qtyInput.step = "1";
+  qtyInput.value = "1";
+  qtyInput.className = "addon-qty";
+  qtyInput.addEventListener("input", calc);
+
+  // Col 4: Regular rate (display only)
+  const regularSpan = document.createElement("div");
+  regularSpan.className = "addon-regular-val";
+  regularSpan.textContent = "—";
+
+  // Col 5: Charged (auto, display only)
+  const chargedSpan = document.createElement("div");
+  chargedSpan.className = "addon-subtotal-val";
+  chargedSpan.textContent = "₱ 0.00";
+  row._chargedSpan = chargedSpan;
+
+  // Col 6: Remove
+  const removeBtn = document.createElement("button");
+  removeBtn.className = "btn-remove";
+  removeBtn.textContent = "×";
+  removeBtn.addEventListener("click", () => {
+    row.remove();
+    calc();
+  });
+
+  row._rentalRate = 0;
+  row._itemSearch = itemSearch;
+  row._qtyInput = qtyInput;
+
+  row.appendChild(catSel);
+  row.appendChild(itemSearch);
+  row.appendChild(qtyInput);
+  row.appendChild(regularSpan);
+  row.appendChild(chargedSpan);
+  row.appendChild(removeBtn);
+
+  document.getElementById("addonRows").appendChild(row);
+  calc();
+}
+
+/* ══════════════════════════════════════════════
+   CALC
+══════════════════════════════════════════════ */
+function calc() {
+  if (!dataReady) return;
+
+  const pkg = document.getElementById("packageType").value;
+  const packageColor = document.getElementById("packageColor").value;
+
+  let packTotal = 0;
+  let addonTotal = 0;
+  const lines = [];
+
+  let anySelected = false;
+
+  // Package items
+  const pkgLines = [];
+  document.querySelectorAll(".package-qty").forEach(input => {
+    const k = input.dataset.k;
+    const qty = Math.max(0, parseInt(input.value) || 0);
+    const [name, price] = packagePrices[pkg][k];
+    const sub = qty * price;
+    packTotal += sub;
+
+    const subEl = document.getElementById("sub_" + k);
+    if (subEl) subEl.textContent = money(sub);
+
+    if (qty > 0) {
+      anySelected = true;
+      // Gather gown item codes
+      const codes = [];
+      if (k === "bridal_gown") {
+        document.querySelectorAll("#bgPickers .gown-picker-set").forEach(set => {
+          const cat = set.querySelector(".gown-cat-sel")?.value || "";
+          const item = set.querySelector(".gown-item-sel")?.getValue?.() || "";
+          codes.push((cat && item) ? `${cat}/${item}` : (item || ""));
+        });
+      }
+      if (k === "mother") {
+        document.querySelectorAll("#mgPickers .gown-picker-set").forEach(set => {
+          const cat = set.querySelector(".gown-cat-sel")?.value || "";
+          const item = set.querySelector(".gown-item-sel")?.getValue?.() || "";
+          codes.push((cat && item) ? `${cat}/${item}` : (item || ""));
+        });
+      }
+
+      let line = `${name}`;
+      if (codes.length) line += ` | ${codes.map((c,i) => c ? `#${i+1}: ${c}` : `#${i+1}: (not selected)`).join(", ")}`;
+      line += ` x ${qty} @ ₱${money(price)} = ₱${money(sub)}`;
+      pkgLines.push(line);
+    }
+  });
+
+  // Add-on items
+  const addonLines = [];
+  document.querySelectorAll(".addon-row").forEach(row => {
+    const qty = Math.max(0, parseInt(row._qtyInput?.value) || 0);
+    const rate = row._rentalRate || 0;
+    const cat = row.querySelector(".addon-cat")?.value || "";
+    const itemCode = row._itemSearch?.getValue?.() || "";
+    const charged = rate * 0.8;
+    const sub = qty * charged;
+    addonTotal += sub;
+
+    if (row._chargedSpan) row._chargedSpan.textContent = "₱ " + money(sub);
+
+    if (qty > 0 && rate > 0 && itemCode) {
+      anySelected = true;
+      addonLines.push(
+        `${cat ? cat + "/" : ""}${itemCode} x ${qty} | Regular: ₱${money(rate)} | Less 20%: ₱${money(charged)} | Subtotal: ₱${money(sub)}`
+      );
+    }
+  });
+
+  document.getElementById("packageSubtotal").textContent = money(packTotal);
+  document.getElementById("addonSubtotal").textContent = money(addonTotal);
+  document.getElementById("grandTotal").textContent = money(packTotal + addonTotal);
+
+  // Build summary text — blank if nothing meaningful selected
+  if (!anySelected && !packageColor) {
+    window.latestSubmissionText = "";
+    return;
+  }
+
+  lines.push("PACKAGE: " + packageNames[pkg]);
+  if (packageColor) lines.push("PACKAGE COLOR: " + packageColor);
+  lines.push("");
+
+  if (pkgLines.length) {
+    lines.push(...pkgLines);
+  }
+
+  if (addonLines.length) {
+    lines.push("");
+    lines.push("ADD-ONS:");
+    lines.push(...addonLines);
+  }
+
+  lines.push("");
+  lines.push("PACKAGE SUBTOTAL: ₱" + money(packTotal));
+  lines.push("ADD-ON SUBTOTAL: ₱" + money(addonTotal));
+  lines.push("GRAND TOTAL: ₱" + money(packTotal + addonTotal));
+
+  window.latestSubmissionText = lines.join("\n");
+}
+
+/* ══════════════════════════════════════════════
+   COPY SUMMARY
+══════════════════════════════════════════════ */
+document.getElementById("copyBtn").addEventListener("click", () => {
+  const text = window.latestSubmissionText || "";
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const toast = document.getElementById("copyToast");
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 2000);
+  });
+});
+
+/* ══════════════════════════════════════════════
+   PACKAGE TYPE CHANGE
+══════════════════════════════════════════════ */
+document.getElementById("packageType").addEventListener("change", render);
+document.getElementById("packageColor").addEventListener("change", calc);
+
+/* ══════════════════════════════════════════════
+   ADD ADDON BUTTON
+══════════════════════════════════════════════ */
+document.getElementById("addAddonBtn").addEventListener("click", addAddonRow);
+
+/* ══════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════ */
+window.latestSubmissionText = "";
+loadAllSheets();
+</script>
+
+</body>
+</html>
