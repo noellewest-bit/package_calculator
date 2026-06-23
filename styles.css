@@ -1,0 +1,275 @@
+/* ── Reset & base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: #f5f0eb;
+  color: #2c2c2c;
+  padding: 16px;
+  min-height: 100vh;
+}
+
+h1 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #1a1a1a;
+  margin-bottom: 18px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #c9a96e;
+}
+
+/* ── Sections ── */
+.section {
+  background: #fff;
+  border: 1px solid #e0d6c8;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.section h3 {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8a6d3b;
+  margin-bottom: 12px;
+}
+
+/* ── Loading overlay ── */
+#loadingOverlay {
+  position: fixed; inset: 0;
+  background: rgba(245,240,235,0.92);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  z-index: 999;
+  font-size: 1rem;
+  color: #8a6d3b;
+  gap: 12px;
+}
+#loadingOverlay .spinner {
+  width: 36px; height: 36px;
+  border: 3px solid #e0d6c8;
+  border-top-color: #c9a96e;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Form elements ── */
+select, input[type="number"], input[type="text"] {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid #d0c4b0;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  background: #fff;
+  color: #2c2c2c;
+  appearance: none;
+  -webkit-appearance: none;
+}
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a6d3b'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  padding-right: 24px;
+}
+select:focus, input:focus {
+  outline: none;
+  border-color: #c9a96e;
+  box-shadow: 0 0 0 2px rgba(201,169,110,0.18);
+}
+select:disabled { background-color: #f5f0eb; color: #aaa; cursor: not-allowed; }
+
+/* ── Package row grid ── */
+.pkg-header, .pkg-row {
+  display: grid;
+  grid-template-columns: 1.6fr 72px 108px 108px;
+  gap: 8px;
+  align-items: start;
+  margin-bottom: 8px;
+}
+.pkg-header { align-items: center; margin-bottom: 6px; }
+.pkg-header > div {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #999;
+}
+.pkg-row > div { padding-top: 2px; }
+.item-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #2c2c2c;
+  margin-bottom: 5px;
+}
+.unit-price {
+  font-size: 0.85rem;
+  padding-top: 9px;
+  color: #555;
+}
+.subtotal-val {
+  font-size: 0.85rem;
+  padding-top: 9px;
+  font-weight: 600;
+  color: #2c2c2c;
+}
+
+/* ── Gown item pickers ── */
+.gown-pickers { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.gown-picker-set {
+  background: #faf7f3;
+  border: 1px solid #e8dece;
+  border-radius: 7px;
+  padding: 8px;
+}
+.gown-picker-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #b08a50;
+  margin-bottom: 6px;
+}
+.gown-picker-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* ── Searchable select wrapper ── */
+.search-select-wrap { position: relative; }
+.search-select-wrap input.search-input {
+  padding-right: 28px;
+}
+.search-select-wrap .dropdown-arrow {
+  position: absolute;
+  right: 9px; top: 50%; transform: translateY(-50%);
+  pointer-events: none;
+  color: #8a6d3b; font-size: 0.7rem;
+}
+.search-select-wrap .options-list {
+  position: absolute;
+  top: 100%; left: 0; right: 0;
+  background: #fff;
+  border: 1px solid #d0c4b0;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  max-height: 180px;
+  overflow-y: auto;
+  z-index: 100;
+  display: none;
+}
+.search-select-wrap .options-list.open { display: block; }
+.search-select-wrap .options-list .opt {
+  padding: 7px 10px;
+  font-size: 0.83rem;
+  cursor: pointer;
+  color: #2c2c2c;
+}
+.search-select-wrap .options-list .opt:hover,
+.search-select-wrap .options-list .opt.highlighted { background: #f5f0eb; }
+.search-select-wrap .options-list .opt.no-results {
+  color: #aaa; font-style: italic; cursor: default;
+}
+.search-select-wrap.required-empty input.search-input {
+  border-color: #e06060;
+}
+
+/* ── Add-on section ── */
+.addon-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 64px 90px 90px 36px;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.addon-header > div {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #999;
+}
+.addon-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 64px 90px 90px 36px;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.addon-subtotal-val {
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: #2c2c2c;
+}
+.addon-regular-val {
+  font-size: 0.83rem;
+  color: #555;
+}
+
+/* ── Buttons ── */
+.btn-add {
+  background: #2c2c2c;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 4px;
+  letter-spacing: 0.04em;
+}
+.btn-add:hover { background: #444; }
+.btn-remove {
+  background: #f0ebe4;
+  border: 1px solid #d0c4b0;
+  border-radius: 5px;
+  width: 30px; height: 30px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: #888;
+}
+.btn-remove:hover { background: #f5dede; color: #c00; }
+
+/* ── Totals ── */
+.totals {
+  background: #2c2c2c;
+  color: #f5f0eb;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.totals .total-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #c9b89a;
+}
+.totals .total-row.grand {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #c9a96e;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid #444;
+}
+
+/* ── Responsive ── */
+@media (max-width: 540px) {
+  .pkg-header, .pkg-row {
+    grid-template-columns: 1fr 56px 88px 88px;
+  }
+  .addon-header, .addon-row {
+    grid-template-columns: 1fr 1fr 48px 78px 78px 30px;
+    gap: 5px;
+  }
+  .gown-picker-row { grid-template-columns: 1fr; }
+}
