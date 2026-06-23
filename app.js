@@ -102,7 +102,7 @@ async function fetchSheet(sheetName) {
       rateColIdx = i;
     }
   });
-
+  console.log(`[${sheetName}] cols:`, cols.map((c,i) => `${i}:${c.label}`), `| rateColIdx: ${rateColIdx}`);
   const items = [];
   // Skip row 0 — it is always the header row regardless of what it says
   for (let i = 1; i < rows.length; i++) {
