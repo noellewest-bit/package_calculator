@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Wedding Entourage Package Calculator</title>
+<script src="https://js.jotform.com/JFCustomWidget.min.js"></script>
 <style>
   /* ── Reset & base ── */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -269,32 +270,7 @@
     border-top: 1px solid #444;
   }
 
-  /* ── Copy summary button ── */
-  .copy-wrap {
-    margin-top: 12px;
-    text-align: right;
-  }
-  .btn-copy {
-    background: transparent;
-    border: 1.5px solid #c9a96e;
-    color: #8a6d3b;
-    border-radius: 7px;
-    padding: 7px 16px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    cursor: pointer;
-    letter-spacing: 0.04em;
-  }
-  .btn-copy:hover { background: #f5f0eb; }
-  .copy-toast {
-    display: inline-block;
-    font-size: 0.78rem;
-    color: #5a9e6f;
-    margin-right: 10px;
-    opacity: 0;
-    transition: opacity 0.3s;
-  }
-  .copy-toast.show { opacity: 1; }
+
 
   /* ── Required badge ── */
   .req-badge {
@@ -378,10 +354,7 @@
   <div class="total-row grand"><span>Grand Total</span><span>₱<span id="grandTotal">0.00</span></span></div>
 </div>
 
-<div class="copy-wrap">
-  <span class="copy-toast" id="copyToast">Copied!</span>
-  <button class="btn-copy" id="copyBtn">Copy Summary</button>
-</div>
+
 
 <script>
 /* ══════════════════════════════════════════════
@@ -1000,19 +973,6 @@ function calc() {
     JFCustomWidget.sendData({ value: window.latestSubmissionText });
   }
 }
-
-/* ══════════════════════════════════════════════
-   COPY SUMMARY
-══════════════════════════════════════════════ */
-document.getElementById("copyBtn").addEventListener("click", () => {
-  const text = window.latestSubmissionText || "";
-  if (!text) return;
-  navigator.clipboard.writeText(text).then(() => {
-    const toast = document.getElementById("copyToast");
-    toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 2000);
-  });
-});
 
 /* ══════════════════════════════════════════════
    JOTFORM SUBMIT LISTENER
