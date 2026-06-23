@@ -93,16 +93,30 @@ async function fetchSheet(sheetName) {
   const text = await res.text();
   const json = JSON.parse(text.replace(/^[^{]*/, "").replace(/\);?\s*$/, ""));
   const rows = json.table?.rows || [];
+  const cols = json.table?.cols || [];
+
+  // Find RENTAL RATE column by label
+  let rateColIdx = -1;
+  cols.forEach((c, i) => {
+    if (c.label && c.label.toString().toUpperCase().includes("RENTAL RATE")) {
+      rateColIdx = i;
+    }
+  });
+
   const items = [];
-  for (const row of rows) {
-    const codeCell = row.c?.[0];
-    const rateCell = row.c?.[3];
-    const code = codeCell?.v != null ? String(codeCell.v).trim() : "";
-    if (!code || code.toUpperCase() === "PRODUCT NAME") continue;
+  // Skip row 0 — it is always the header row regardless of what it says
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const code = row.c?.[0]?.v != null ? String(row.c[0].v).trim() : "";
+    if (!code) continue;
+
     let rentalRate = null;
-    if (rateCell?.v != null && rateCell.v !== "" && rateCell.v !== 0) {
-      rentalRate = parseFloat(String(rateCell.v).replace(/[^0-9.]/g, "")) || null;
-      if (rentalRate === 0) rentalRate = null;
+    if (rateColIdx >= 0) {
+      const rateCell = row.c?.[rateColIdx];
+      if (rateCell?.v != null && rateCell.v !== "" && rateCell.v !== 0) {
+        rentalRate = parseFloat(String(rateCell.v).replace(/[^0-9.]/g, "")) || null;
+        if (rentalRate === 0) rentalRate = null;
+      }
     }
     items.push({ code, rentalRate });
   }
