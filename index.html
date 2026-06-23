@@ -729,12 +729,7 @@ function render() {
     itemLabel.className = "item-label";
     itemLabel.innerHTML = name;
 
-    if (k === "bridal_gown") {
-      itemLabel.innerHTML += `<span class="req-badge">★ Required</span>`;
-    }
-    if (k === "mother") {
-      itemLabel.innerHTML += `<span class="req-badge">★ Required</span>`;
-    }
+
 
     labelCol.appendChild(itemLabel);
 
@@ -999,6 +994,11 @@ function calc() {
   lines.push("GRAND TOTAL: ₱" + money(packTotal + addonTotal));
 
   window.latestSubmissionText = lines.join("\n");
+
+  // Send live data to JotForm if running inside a JotForm widget
+  if (typeof JFCustomWidget !== "undefined") {
+    JFCustomWidget.sendData({ value: window.latestSubmissionText });
+  }
 }
 
 /* ══════════════════════════════════════════════
@@ -1013,6 +1013,15 @@ document.getElementById("copyBtn").addEventListener("click", () => {
     setTimeout(() => toast.classList.remove("show"), 2000);
   });
 });
+
+/* ══════════════════════════════════════════════
+   JOTFORM SUBMIT LISTENER
+══════════════════════════════════════════════ */
+if (typeof JFCustomWidget !== "undefined") {
+  JFCustomWidget.subscribe("submit", function () {
+    JFCustomWidget.sendSubmit({ value: window.latestSubmissionText || "" });
+  });
+}
 
 /* ══════════════════════════════════════════════
    PACKAGE TYPE CHANGE
