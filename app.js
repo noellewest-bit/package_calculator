@@ -507,9 +507,7 @@ function calc() {
   // Build summary — blank if nothing selected
   if (!anySelected && !packageColor) {
     window.latestSubmissionText = "";
-    if (window.JFCustomWidget && typeof JFCustomWidget.sendData === "function") {
-      JFCustomWidget.sendData({ value: "" });
-    }
+    broadcastToJotform();
     return;
   }
 
@@ -529,23 +527,40 @@ function calc() {
   lines.push("GRAND TOTAL: ₱"      + money(packTotal + addonTotal));
 
   window.latestSubmissionText = lines.join("\n");
-
-  if (window.JFCustomWidget && typeof JFCustomWidget.sendData === "function") {
-    JFCustomWidget.sendData({ value: window.latestSubmissionText });
-  }
+  broadcastToJotform();
 }
 
 /* ══════════════════════════════════════════════
-   JOTFORM SUBMIT
+   JOTFORM INTEGRATION
 ══════════════════════════════════════════════ */
-if (window.JFCustomWidget) {
-  JFCustomWidget.subscribe("submit", function () {
-    calc();
-    JFCustomWidget.sendSubmit({
-      valid: true,
-      value: window.latestSubmissionText || ""
-    });
-  });
+function broadcastToJotform() {
+  const value = window.latestSubmissionText || "";
+
+  // 1. Standard widget API
+  if (typeof JFCustomWidget !== "undefined") {
+    try { JFCustomWidget.sendData({ value }); } catch(e) {}
+  }
+
+  // 2. Direct DOM injection into parent JotForm field
+
+  try {
+    if (window.parent && window.parent !== window) {
+      const t = window.parent.document.getElementById("input_110");
+      if (t) {
+        t.value = value;
+        t.dispatchEvent(new Event("input",  { bubbles: true }));
+        t.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      window.parent.postMessage(JSON.stringify({ type: "widgetValue", value, valid: true }), "*");
+    }
+  } catch(e) {}
+}
+
+function setupJotform() {
+  if (typeof JFCustomWidget === "undefined") return;
+  JFCustomWidget.subscribe("submit", () =>
+    JFCustomWidget.sendSubmit({ valid: true, value: window.latestSubmissionText || "" }));
+  JFCustomWidget.subscribe("ready", broadcastToJotform);
 }
 
 /* ══════════════════════════════════════════════
@@ -558,4 +573,5 @@ document.getElementById("addAddonBtn").addEventListener("click", addAddonRow);
 /* ══════════════════════════════════════════════
    INIT
 ══════════════════════════════════════════════ */
+setupJotform();
 loadAllSheets();
