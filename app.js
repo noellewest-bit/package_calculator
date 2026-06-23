@@ -564,14 +564,12 @@ function setupJotform() {
 }
 
 /* ══════════════════════════════════════════════
-   EVENT LISTENERS
-══════════════════════════════════════════════ */
-document.getElementById("packageType").addEventListener("change", render);
-document.getElementById("packageColor").addEventListener("change", calc);
-document.getElementById("addAddonBtn").addEventListener("click", addAddonRow);
-
-/* ══════════════════════════════════════════════
    INIT
 ══════════════════════════════════════════════ */
-setupJotform();
-loadAllSheets();
+document.addEventListener("DOMContentLoaded", async () => {
+  document.getElementById("packageType").addEventListener("change", render);
+  document.getElementById("packageColor").addEventListener("change", calc);
+  document.getElementById("addAddonBtn").addEventListener("click", addAddonRow);
+  setupJotform();
+  await loadAllSheets();
+});
