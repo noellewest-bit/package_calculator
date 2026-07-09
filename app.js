@@ -557,7 +557,6 @@ function calc() {
     const rate     = row._activeRate || 0;
     const cat      = row.querySelector(".addon-cat")?.value || "";
     const itemCode = row._itemSearch?.getValue?.() || "";
-    const priceType = row._priceTypeSel?.value === "firstuser" ? "First User" : "Rental Rate";
     const charged  = rate * 0.8;
     const sub      = qty * charged;
     addonTotal += sub;
@@ -567,7 +566,7 @@ function calc() {
     if (qty > 0 && rate > 0 && itemCode) {
       anySelected = true;
       addonLines.push(
-        `${cat ? cat + "/" : ""}${itemCode} (${priceType}) x ${qty} | Regular: ₱${money(rate)} | Less 20%: ₱${money(charged)} | Subtotal: ₱${money(sub)}`
+        `${cat ? cat + "/" : ""}${itemCode} x ${qty} | Regular: ₱${money(rate)} | Less 20%: ₱${money(charged)} | Subtotal: ₱${money(sub)}`
       );
     }
   });
