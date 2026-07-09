@@ -95,14 +95,15 @@ async function fetchSheet(sheetName) {
   const rows = json.table?.rows || [];
   const cols = json.table?.cols || [];
 
-  // Find RENTAL RATE column by label
+  // Find RENTAL RATE and FIRST USER columns by label
   let rateColIdx = -1;
+  let firstUserColIdx = -1;
   cols.forEach((c, i) => {
-    if (c.label && c.label.toString().toUpperCase().includes("RENTAL RATE")) {
-      rateColIdx = i;
-    }
+    const label = c.label ? c.label.toString().toUpperCase() : "";
+    if (label.includes("RENTAL RATE")) rateColIdx = i;
+    if (label.includes("FIRST USER"))  firstUserColIdx = i;
   });
-  console.log(`[${sheetName}] cols:`, cols.map((c,i) => `${i}:${c.label}`), `| rateColIdx: ${rateColIdx}`);
+  
   const items = [];
   // Skip row 0 — it is always the header row regardless of what it says
   for (let i = 1; i < rows.length; i++) {
@@ -118,7 +119,17 @@ async function fetchSheet(sheetName) {
         if (rentalRate === 0) rentalRate = null;
       }
     }
-    items.push({ code, rentalRate });
+
+    let firstUser = null;
+    if (firstUserColIdx >= 0) {
+      const fuCell = row.c?.[firstUserColIdx];
+      if (fuCell?.v != null && fuCell.v !== "" && fuCell.v !== 0) {
+        firstUser = parseFloat(String(fuCell.v).replace(/[^0-9.]/g, "")) || null;
+        if (firstUser === 0) firstUser = null;
+      }
+    }
+
+    items.push({ code, rentalRate, firstUser });
   }
   return items;
 }
@@ -383,32 +394,75 @@ function addAddonRow() {
   regularSpan.className = "addon-regular-val";
   regularSpan.textContent = "—";
 
+  // Col 3: Price type selector (shown/hidden based on available prices)
+  const priceTypeSel = document.createElement("select");
+  priceTypeSel.className = "addon-price-type";
+  priceTypeSel.style.display = "none";
+  const ptDefault = document.createElement("option");
+  ptDefault.value = "rental"; ptDefault.textContent = "Rental";
+  priceTypeSel.appendChild(ptDefault);
+
+  function updatePriceType() {
+    const found = row._foundItem;
+    if (!found) { priceTypeSel.style.display = "none"; return; }
+
+    const hasRental    = found.rentalRate != null;
+    const hasFirstUser = found.firstUser  != null;
+
+    // Rebuild options based on what's available
+    priceTypeSel.innerHTML = "";
+    if (hasRental) {
+      const o = document.createElement("option");
+      o.value = "rental"; o.textContent = "Rental Rate";
+      priceTypeSel.appendChild(o);
+    }
+    if (hasFirstUser) {
+      const o = document.createElement("option");
+      o.value = "firstuser"; o.textContent = "First User";
+      priceTypeSel.appendChild(o);
+    }
+
+    // Only show the selector if both options exist
+    priceTypeSel.style.display = (hasRental && hasFirstUser) ? "" : "none";
+    applySelectedPrice();
+  }
+
+  function applySelectedPrice() {
+    const found = row._foundItem;
+    if (!found) { row._activeRate = 0; regularSpan.textContent = "—"; calc(); return; }
+    const type = priceTypeSel.value;
+    const price = (type === "firstuser" && found.firstUser != null)
+      ? found.firstUser
+      : (found.rentalRate ?? 0);
+    row._activeRate = price;
+    regularSpan.textContent = price ? "₱ " + money(price) : "—";
+    calc();
+  }
+
+  priceTypeSel.addEventListener("change", applySelectedPrice);
+
   const itemSearch = createSearchSelect({
     placeholder: "— Item Code —",
     options: [],
     onSelect: (code) => {
       const cat = catSel.value;
       const found = (sheetData[cat] || []).find(i => i.code === code);
-      if (found && found.rentalRate != null) {
-        row._rentalRate = found.rentalRate;
-        regularSpan.textContent = "₱ " + money(found.rentalRate);
-      } else {
-        row._rentalRate = 0;
-        regularSpan.textContent = "—";
-      }
-      calc();
+      row._foundItem = found || null;
+      updatePriceType();
     }
   });
 
   catSel.addEventListener("change", () => {
     const cat = catSel.value;
     itemSearch.setOptions(cat && sheetData[cat] ? sheetData[cat].map(r => r.code) : []);
-    row._rentalRate = 0;
+    row._foundItem = null;
+    row._activeRate = 0;
+    priceTypeSel.style.display = "none";
     regularSpan.textContent = "—";
     calc();
   });
 
-  // Col 3: Quantity
+  // Col 4: Quantity
   const qtyInput = document.createElement("input");
   qtyInput.type = "number";
   qtyInput.min = "1";
@@ -417,24 +471,27 @@ function addAddonRow() {
   qtyInput.className = "addon-qty";
   qtyInput.addEventListener("input", calc);
 
-  // Col 5: Charged
+  // Col 6: Charged
   const chargedSpan = document.createElement("div");
   chargedSpan.className = "addon-subtotal-val";
   chargedSpan.textContent = "₱ 0.00";
 
-  // Col 6: Remove
+  // Col 7: Remove
   const removeBtn = document.createElement("button");
   removeBtn.className = "btn-remove";
   removeBtn.textContent = "×";
   removeBtn.addEventListener("click", () => { row.remove(); calc(); });
 
-  row._rentalRate = 0;
-  row._itemSearch = itemSearch;
-  row._qtyInput   = qtyInput;
+  row._foundItem   = null;
+  row._activeRate  = 0;
+  row._itemSearch  = itemSearch;
+  row._qtyInput    = qtyInput;
   row._chargedSpan = chargedSpan;
+  row._priceTypeSel = priceTypeSel;
 
   row.appendChild(catSel);
   row.appendChild(itemSearch);
+  row.appendChild(priceTypeSel);
   row.appendChild(qtyInput);
   row.appendChild(regularSpan);
   row.appendChild(chargedSpan);
@@ -497,9 +554,10 @@ function calc() {
   // Add-on items
   document.querySelectorAll(".addon-row").forEach(row => {
     const qty      = Math.max(0, parseInt(row._qtyInput?.value) || 0);
-    const rate     = row._rentalRate || 0;
+    const rate     = row._activeRate || 0;
     const cat      = row.querySelector(".addon-cat")?.value || "";
     const itemCode = row._itemSearch?.getValue?.() || "";
+    const priceType = row._priceTypeSel?.value === "firstuser" ? "First User" : "Rental Rate";
     const charged  = rate * 0.8;
     const sub      = qty * charged;
     addonTotal += sub;
@@ -509,7 +567,7 @@ function calc() {
     if (qty > 0 && rate > 0 && itemCode) {
       anySelected = true;
       addonLines.push(
-        `${cat ? cat + "/" : ""}${itemCode} x ${qty} | Regular: ₱${money(rate)} | Less 20%: ₱${money(charged)} | Subtotal: ₱${money(sub)}`
+        `${cat ? cat + "/" : ""}${itemCode} (${priceType}) x ${qty} | Regular: ₱${money(rate)} | Less 20%: ₱${money(charged)} | Subtotal: ₱${money(sub)}`
       );
     }
   });
