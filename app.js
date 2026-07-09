@@ -105,8 +105,8 @@ async function fetchSheet(sheetName) {
   });
   
   const items = [];
-  // Skip row 0 — it is always the header row regardless of what it says
-  for (let i = 1; i < rows.length; i++) {
+  // gviz does NOT include the header in rows — start from index 0
+  for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const code = row.c?.[0]?.v != null ? String(row.c[0].v).trim() : "";
     if (!code) continue;
