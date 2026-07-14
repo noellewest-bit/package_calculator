@@ -96,14 +96,15 @@ function money(x) {
 /* ══════════════════════════════════════════════
    FETCH SHEET DATA
 ══════════════════════════════════════════════ */
-async function fetchSheet(sheetName) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+async function fetchSheet(sheetName, gid = null) {
+  const url = gid
+    ? `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`
+    : `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
   const res = await fetch(url);
   const text = await res.text();
 
   // Parse CSV manually
   const rows = text.trim().split("\n").map(line => {
-    // Handle quoted fields containing commas
     const cells = [];
     let cur = "", inQ = false;
     for (let i = 0; i < line.length; i++) {
@@ -118,7 +119,6 @@ async function fetchSheet(sheetName) {
 
   if (rows.length < 2) return [];
 
-  // Row 0 is the header — find column indices by header name
   const headers = rows[0].map(h => h.replace(/^"|"$/g, "").toUpperCase().trim());
   let rateColIdx      = headers.findIndex(h => h.includes("RENTAL RATE"));
   let firstUserColIdx = headers.findIndex(h => h.includes("FIRST USER"));
@@ -147,9 +147,18 @@ async function fetchSheet(sheetName) {
   return items;
 }
 
+// Sheets that need to be fetched by gid instead of name (spaces/special chars in name)
+const SHEET_GIDS = {
+  "BGI-ADD ON": "1816801973",
+  "PGI-ADD ON": "549742471"
+};
+
 async function loadAllSheets() {
   const results = await Promise.allSettled(
-    ALL_SHEETS.map(name => fetchSheet(name).then(items => ({ name, items })))
+    ALL_SHEETS.map(name => {
+      const gid = SHEET_GIDS[name] || null;
+      return fetchSheet(name, gid).then(items => ({ name, items }));
+    })
   );
   for (const r of results) {
     if (r.status === "fulfilled") {
