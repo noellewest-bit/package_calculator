@@ -482,12 +482,13 @@ function addAddonRow() {
   removeBtn.textContent = "×";
   removeBtn.addEventListener("click", () => { row.remove(); calc(); });
 
-  row._foundItem   = null;
-  row._activeRate  = 0;
-  row._itemSearch  = itemSearch;
-  row._qtyInput    = qtyInput;
-  row._chargedSpan = chargedSpan;
+  row._foundItem    = null;
+  row._activeRate   = 0;
+  row._itemSearch   = itemSearch;
+  row._qtyInput     = qtyInput;
+  row._chargedSpan  = chargedSpan;
   row._priceTypeSel = priceTypeSel;
+  row._updatePriceType = updatePriceType;
 
   row.appendChild(catSel);
   row.appendChild(itemSearch);
@@ -631,7 +632,186 @@ function setupJotform() {
   if (typeof JFCustomWidget === "undefined") return;
   JFCustomWidget.subscribe("submit", () =>
     JFCustomWidget.sendSubmit({ valid: true, value: window.latestSubmissionText || "" }));
-  JFCustomWidget.subscribe("ready", broadcastToJotform);
+  JFCustomWidget.subscribe("ready", function() {
+    const saved = JFCustomWidget.getWidgetSetting
+      ? JFCustomWidget.getWidgetSetting("value")
+      : null;
+    if (saved && typeof saved === "string" && saved.trim()) {
+      restoreFromSummary(saved.trim());
+    } else {
+      broadcastToJotform();
+    }
+  });
+}
+
+/* ══════════════════════════════════════════════
+   RESTORE FROM SAVED SUMMARY
+══════════════════════════════════════════════ */
+async function restoreFromSummary(text) {
+  // Wait until sheet data is ready
+  if (!dataReady) {
+    await new Promise(resolve => {
+      const check = setInterval(() => {
+        if (dataReady) { clearInterval(check); resolve(); }
+      }, 100);
+    });
+  }
+
+  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+
+  // ── Package type ──
+  const pkgLine = lines.find(l => l.startsWith("PACKAGE:"));
+  if (pkgLine) {
+    const pkgName = pkgLine.replace("PACKAGE:", "").trim();
+    const pkgSel = document.getElementById("packageType");
+    for (const [val, name] of Object.entries(packageNames)) {
+      if (name === pkgName) { pkgSel.value = val; break; }
+    }
+    render(); // rebuild package rows for this package
+  }
+
+  // ── Package color ──
+  const colorLine = lines.find(l => l.startsWith("PACKAGE COLOR:"));
+  if (colorLine) {
+    const color = colorLine.replace("PACKAGE COLOR:", "").trim();
+    const colorSel = document.getElementById("packageColor");
+    colorSel.value = color;
+  }
+
+  // ── Package item name → key map ──
+  const pkg = document.getElementById("packageType").value;
+  const nameToKey = {};
+  for (const [k, [name]] of Object.entries(packagePrices[pkg])) {
+    nameToKey[name] = k;
+  }
+
+  // ── Parse package item lines ──
+  // Format: "Bridal Gown | #1: BGI/BGI001, #2: BGS/BGS002 x 2 @ ₱600.00 = ₱1,200.00"
+  // Or:     "Maid of Honor x 3 @ ₱280.50 = ₱841.50"
+  const addonStartIdx = lines.findIndex(l => l === "ADD-ONS:");
+  const pkgItemLines = lines.filter((l, i) => {
+    if (l.startsWith("PACKAGE:") || l.startsWith("PACKAGE COLOR:") ||
+        l.startsWith("PACKAGE SUBTOTAL:") || l.startsWith("ADD-ON SUBTOTAL:") ||
+        l.startsWith("GRAND TOTAL:") || l === "ADD-ONS:") return false;
+    if (addonStartIdx >= 0 && i > addonStartIdx) return false;
+    return l.includes(" x ") && l.includes("@");
+  });
+
+  for (const line of pkgItemLines) {
+    // Extract qty — it's the number after " x " and before " @"
+    const qtyMatch = line.match(/ x (\d+) @/);
+    if (!qtyMatch) continue;
+    const qty = parseInt(qtyMatch[1]);
+
+    // Determine item name (before any " | " or " x ")
+    const itemName = line.split(/\s*\|\s*|\s+x\s+\d+\s+@/)[0].trim();
+    const k = nameToKey[itemName];
+    if (!k) continue;
+
+    // Set quantity
+    const qtyInput = document.querySelector(`.package-qty[data-k="${k}"]`);
+    if (qtyInput) {
+      qtyInput.value = qty;
+      qtyInput.dispatchEvent(new Event("input"));
+    }
+
+    // Restore gown codes if present
+    // Format: "Bridal Gown | #1: BGI/BGI001, #2: BGS/BGS002 x 2 @..."
+    if (k === "bridal_gown" || k === "mother") {
+      const containerId = k === "bridal_gown" ? "bgPickers" : "mgPickers";
+      const allowedCats = k === "bridal_gown" ? BG_CATS : MG_CATS;
+      const labelPrefix = k === "bridal_gown" ? "Bridal Gown" : "Mother's Gown";
+
+      // Parse codes: "#1: BGI/BGI001" → { cat: "BGI", code: "BGI001" }
+      const codeMatches = [...line.matchAll(/#\d+:\s*([^/,]+)\/([^,\s]+)/g)];
+      if (codeMatches.length > 0) {
+        buildGownPickers(containerId, codeMatches.length, allowedCats, labelPrefix);
+        const sets = document.querySelectorAll(`#${containerId} .gown-picker-set`);
+        codeMatches.forEach((m, i) => {
+          const cat  = m[1].trim();
+          const code = m[2].trim();
+          const set  = sets[i];
+          if (!set) return;
+          const catSel = set.querySelector(".gown-cat-sel");
+          const itemSel = set.querySelector(".gown-item-sel");
+          if (catSel) {
+            catSel.value = cat;
+            // Populate item codes for this category
+            if (sheetData[cat]) {
+              itemSel.setOptions(sheetData[cat].map(r => r.code));
+            }
+          }
+          if (itemSel) itemSel.setValue(code);
+        });
+      }
+    }
+  }
+
+  // ── Parse add-on lines ──
+  // Format: "BGS/BGS001 x 1 | Regular: ₱1,500.00 | Less 20%: ₱1,200.00 | Subtotal: ₱1,200.00"
+  if (addonStartIdx >= 0) {
+    const addonLines = lines.filter((l, i) => {
+      if (i <= addonStartIdx) return false;
+      if (l.startsWith("PACKAGE SUBTOTAL:") || l.startsWith("ADD-ON SUBTOTAL:") ||
+          l.startsWith("GRAND TOTAL:")) return false;
+      return l.includes(" x ") && l.includes("Regular:");
+    });
+
+    for (const line of addonLines) {
+      // Parse: "CAT/CODE x QTY | Regular: ₱PRICE | ..."
+      const m = line.match(/^([^/]+)\/(\S+)\s+x\s+(\d+)\s+\|\s*Regular:\s*₱([\d,]+\.?\d*)/);
+      if (!m) continue;
+      const cat      = m[1].trim();
+      const code     = m[2].trim();
+      const qty      = parseInt(m[3]);
+      const regular  = parseFloat(m[4].replace(/,/g, ""));
+
+      // Add the row
+      addAddonRow();
+      const rows = document.querySelectorAll(".addon-row");
+      const row  = rows[rows.length - 1];
+
+      // Set category
+      const catSel = row.querySelector(".addon-cat");
+      if (catSel) {
+        catSel.value = cat;
+        catSel.dispatchEvent(new Event("change"));
+      }
+
+      // Wait a tick for item codes to populate, then set values
+      await new Promise(r => setTimeout(r, 0));
+
+      // Set item code
+      if (row._itemSearch && sheetData[cat]) {
+        row._itemSearch.setOptions(sheetData[cat].map(r => r.code));
+        const found = sheetData[cat].find(i => i.code === code);
+        row._foundItem = found || null;
+        row._itemSearch.setValue(code);
+
+        // Determine price type by matching regular price to rental vs first user
+        if (found) {
+          const ptSel = row._priceTypeSel;
+          if (found.firstUser && Math.abs(found.firstUser - regular) < 0.01) {
+            ptSel.value = "firstuser";
+          } else {
+            ptSel.value = "rental";
+          }
+          // Trigger price type update
+          const updateFn = row._updatePriceType;
+          if (updateFn) updateFn();
+          else {
+            row._activeRate = regular;
+            row.querySelector(".addon-regular-val").textContent = "₱ " + money(regular);
+          }
+        }
+      }
+
+      // Set quantity
+      if (row._qtyInput) row._qtyInput.value = qty;
+    }
+  }
+
+  calc();
 }
 
 /* ══════════════════════════════════════════════
