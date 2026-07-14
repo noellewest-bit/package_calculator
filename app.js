@@ -7,7 +7,16 @@ const ALL_SHEETS = [
   "BGS","BGI","PGS","PGI","MOH","BMG","FGG","PGC","FIL",
   "MG","CD","MS","CS","PET-#","PET","BCPO","BOY","BPSC",
   "BPO","BPOL","BPS","COAT BARONG","BCC","BPOC","VST",
-  "S-UPPER","POLO","ACC","PEN","PANTS","PACKAGE COLORS"
+  "S-UPPER","POLO","ACC","PEN","PANTS","PACKAGE COLORS",
+  "BGI-ADD ON","PGI-ADD ON"
+];
+
+// All categories available in Add-On dropdown (excludes PACKAGE COLORS, BGI, PGI)
+const ADDON_CATS = [
+  "BGS","BGI-ADD ON","PGS","PGI-ADD ON","MOH","BMG","FGG","PGC","FIL",
+  "MG","CD","MS","CS","PET-#","PET","BCPO","BOY","BPSC",
+  "BPO","BPOL","BPS","COAT BARONG","BCC","BPOC","VST",
+  "S-UPPER","POLO","ACC","PEN","PANTS"
 ];
 
 const BG_CATS = ["BGI","BGS","PGI","PGS","CD"];
@@ -374,7 +383,7 @@ function render() {
 /* ══════════════════════════════════════════════
    ADD-ON ROWS
 ══════════════════════════════════════════════ */
-const ADDON_CATS = ALL_SHEETS.filter(s => s !== "PACKAGE COLORS");
+
 
 function addAddonRow() {
   const row = document.createElement("div");
