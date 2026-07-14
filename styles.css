@@ -182,7 +182,7 @@ select:disabled { background-color: #f5f0eb; color: #aaa; cursor: not-allowed; }
 /* ── Add-on section ── */
 .addon-header {
   display: grid;
-  grid-template-columns: 1fr 1fr 100px 64px 90px 90px 36px;
+  grid-template-columns: 0.8fr 1.4fr 100px 48px 90px 90px 36px;
   gap: 8px;
   align-items: center;
   margin-bottom: 6px;
@@ -196,7 +196,7 @@ select:disabled { background-color: #f5f0eb; color: #aaa; cursor: not-allowed; }
 }
 .addon-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 100px 64px 90px 90px 36px;
+  grid-template-columns: 0.8fr 1.4fr 100px 48px 90px 90px 36px;
   gap: 8px;
   align-items: center;
   margin-bottom: 8px;
@@ -268,7 +268,7 @@ select:disabled { background-color: #f5f0eb; color: #aaa; cursor: not-allowed; }
     grid-template-columns: 1fr 56px 88px 88px;
   }
   .addon-header, .addon-row {
-    grid-template-columns: 1fr 1fr 80px 48px 78px 78px 30px;
+    grid-template-columns: 0.8fr 1.4fr 80px 40px 70px 70px 30px;
     gap: 5px;
   }
   .gown-picker-row { grid-template-columns: 1fr; }
