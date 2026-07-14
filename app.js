@@ -670,12 +670,23 @@ function setupJotform() {
   JFCustomWidget.subscribe("ready", function(data) {
     console.log("[JotForm ready] data:", JSON.stringify(data));
 
-    // Extract submission ID from ready event (sid field) or parent URL
-    let sid = (data && data.sid) ? String(data.sid) : null;
+    // Extract submission ID — JotForm puts it in data.sid
+    let sid = null;
+    if (data) {
+      sid = data.sid || data.submissionID || data.submissionId || null;
+      if (sid) sid = String(sid);
+    }
+    // Fallback: parse from the stringified data directly
+    if (!sid) {
+      try {
+        const m = JSON.stringify(data).match(/"sid"\s*:\s*"?(\d+)"?/);
+        if (m) sid = m[1];
+      } catch(e) {}
+    }
+    // Fallback: parse from parent URL
     if (!sid) sid = getSubmissionId();
-    console.log("[JotForm ready] sid:", sid);
 
-    // Store sid so broadcastToJotform can save on every change
+    console.log("[JotForm ready] sid:", sid);
     window._jfSid = sid;
 
     // Try to restore from localStorage using submission ID
