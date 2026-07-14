@@ -697,23 +697,30 @@ function setupJotform() {
     // Fetch from JotForm API (works for all submissions, old and new)
     if (sid) {
       console.log("[JotForm ready] fetching from JotForm API...");
-      fetch(`https://api.jotform.com/submission/${sid}?apiKey=6b9359da26ff8421a11c7f9dca4553a9`)
-        .then(r => r.json())
+      const apiUrl = `https://api.jotform.com/submission/${sid}?apiKey=6b9359da26ff8421a11c7f9dca4553a9&nocache=${Date.now()}`;
+      fetch(apiUrl, { mode: "cors" })
+        .then(r => {
+          console.log("[JotForm API] status:", r.status);
+          return r.json();
+        })
         .then(json => {
-          console.log("[JotForm API] response content:", JSON.stringify(json?.content?.answers?.["110"]));
+          console.log("[JotForm API] responseCode:", json?.responseCode);
           const answer = json?.content?.answers?.["110"];
-          const saved = answer?.answer || answer?.prettyFormat || null;
-          if (saved && saved.trim()) {
-            console.log("[JotForm API] restoring from API:", saved.substring(0, 80));
-            saveToLocalStorage(sid, saved.trim());
-            restoreFromSummary(saved.trim());
+          console.log("[JotForm API] field 110:", JSON.stringify(answer));
+          const saved = (answer?.answer && answer.answer.trim()) ? answer.answer.trim()
+                      : (answer?.prettyFormat && answer.prettyFormat.trim()) ? answer.prettyFormat.trim()
+                      : null;
+          if (saved) {
+            console.log("[JotForm API] restoring:", saved.substring(0, 80));
+            saveToLocalStorage(sid, saved);
+            restoreFromSummary(saved);
           } else {
-            console.log("[JotForm API] no saved value found");
+            console.log("[JotForm API] no value in field 110");
             broadcastToJotform();
           }
         })
         .catch(err => {
-          console.log("[JotForm API] fetch failed:", err);
+          console.log("[JotForm API] fetch error:", err.message || err);
           broadcastToJotform();
         });
     } else {
