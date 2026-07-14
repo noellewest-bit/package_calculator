@@ -611,6 +611,9 @@ function calc() {
 function broadcastToJotform() {
   const value = window.latestSubmissionText || "";
 
+  // Save to localStorage keyed by submission ID
+  if (window._jfSid) saveToLocalStorage(window._jfSid, value);
+
   // 1. Standard widget API
   if (typeof JFCustomWidget !== "undefined") {
     try { JFCustomWidget.sendData({ value }); } catch(e) {}
@@ -631,27 +634,53 @@ function broadcastToJotform() {
   } catch(e) {}
 }
 
+function getSubmissionId() {
+  // Extract submission ID from parent URL (jotform.com/edit/SUBMISSION_ID)
+  // or from the ready event's sid field
+  try {
+    const parentUrl = window.parent.location.href;
+    const m = parentUrl.match(/\/edit\/(\d+)/);
+    if (m) return m[1];
+  } catch(e) {}
+  // Fallback: try our own URL params
+  try {
+    const m = window.location.href.match(/[?&]sid=(\d+)/);
+    if (m) return m[1];
+  } catch(e) {}
+  return null;
+}
+
+function saveToLocalStorage(sid, text) {
+  if (!sid || !text) return;
+  try { localStorage.setItem("jf_calc_" + sid, text); } catch(e) {}
+}
+
+function loadFromLocalStorage(sid) {
+  if (!sid) return null;
+  try { return localStorage.getItem("jf_calc_" + sid) || null; } catch(e) { return null; }
+}
+
 function setupJotform() {
   if (typeof JFCustomWidget === "undefined") return;
-  JFCustomWidget.subscribe("submit", () =>
-    JFCustomWidget.sendSubmit({ valid: true, value: window.latestSubmissionText || "" }));
+
+  JFCustomWidget.subscribe("submit", () => {
+    JFCustomWidget.sendSubmit({ valid: true, value: window.latestSubmissionText || "" });
+  });
+
   JFCustomWidget.subscribe("ready", function(data) {
     console.log("[JotForm ready] data:", JSON.stringify(data));
 
-    // Try 1: value from ready event
-    let saved = (data && data.value && data.value.trim()) ? data.value.trim() : null;
-    console.log("[JotForm ready] saved from event:", saved ? saved.substring(0, 80) : "none");
+    // Extract submission ID from ready event (sid field) or parent URL
+    let sid = (data && data.sid) ? String(data.sid) : null;
+    if (!sid) sid = getSubmissionId();
+    console.log("[JotForm ready] sid:", sid);
 
-    // Try 2: read directly from parent DOM field (most reliable on edit)
-    if (!saved) {
-      try {
-        const t = window.parent && window.parent.document.getElementById("input_110");
-        if (t && t.value && t.value.trim()) {
-          saved = t.value.trim();
-          console.log("[JotForm ready] saved from parent DOM:", saved.substring(0, 80));
-        }
-      } catch(e) { console.log("[JotForm ready] parent DOM read failed:", e); }
-    }
+    // Store sid so broadcastToJotform can save on every change
+    window._jfSid = sid;
+
+    // Try to restore from localStorage using submission ID
+    const saved = sid ? loadFromLocalStorage(sid) : null;
+    console.log("[JotForm ready] saved from localStorage:", saved ? saved.substring(0, 80) : "none");
 
     if (saved) {
       restoreFromSummary(saved);
