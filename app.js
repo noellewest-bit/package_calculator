@@ -120,8 +120,9 @@ async function fetchSheet(sheetName) {
 
   // Row 0 is the header — find column indices by header name
   const headers = rows[0].map(h => h.replace(/^"|"$/g, "").toUpperCase().trim());
-  let rateColIdx     = headers.findIndex(h => h.includes("RENTAL RATE"));
+  let rateColIdx      = headers.findIndex(h => h.includes("RENTAL RATE"));
   let firstUserColIdx = headers.findIndex(h => h.includes("FIRST USER"));
+  console.log(`[${sheetName}] headers:`, headers, `| rentalCol: ${rateColIdx} | fuCol: ${firstUserColIdx}`);
 
   const items = [];
   for (let i = 1; i < rows.length; i++) {
