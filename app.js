@@ -88,45 +88,48 @@ function money(x) {
    FETCH SHEET DATA
 ══════════════════════════════════════════════ */
 async function fetchSheet(sheetName) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
   const res = await fetch(url);
   const text = await res.text();
-  const json = JSON.parse(text.replace(/^[^{]*/, "").replace(/\);?\s*$/, ""));
-  const rows = json.table?.rows || [];
-  const cols = json.table?.cols || [];
 
-  // Find RENTAL RATE and FIRST USER columns by label
-  let rateColIdx = -1;
-  let firstUserColIdx = -1;
-  cols.forEach((c, i) => {
-    const label = c.label ? c.label.toString().toUpperCase() : "";
-    if (label.includes("RENTAL RATE")) rateColIdx = i;
-    if (label.includes("FIRST USER"))  firstUserColIdx = i;
+  // Parse CSV manually
+  const rows = text.trim().split("\n").map(line => {
+    // Handle quoted fields containing commas
+    const cells = [];
+    let cur = "", inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === "," && !inQ) { cells.push(cur.trim()); cur = ""; }
+      else { cur += ch; }
+    }
+    cells.push(cur.trim());
+    return cells;
   });
-  
+
+  if (rows.length < 2) return [];
+
+  // Row 0 is the header — find column indices by header name
+  const headers = rows[0].map(h => h.replace(/^"|"$/g, "").toUpperCase().trim());
+  let rateColIdx     = headers.findIndex(h => h.includes("RENTAL RATE"));
+  let firstUserColIdx = headers.findIndex(h => h.includes("FIRST USER"));
+
   const items = [];
-  // gviz does NOT include the header in rows — start from index 0
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    const code = row.c?.[0]?.v != null ? String(row.c[0].v).trim() : "";
+  for (let i = 1; i < rows.length; i++) {
+    const row  = rows[i];
+    const code = row[0]?.replace(/^"|"$/g, "").trim();
     if (!code) continue;
 
     let rentalRate = null;
-    if (rateColIdx >= 0) {
-      const rateCell = row.c?.[rateColIdx];
-      if (rateCell?.v != null && rateCell.v !== "" && rateCell.v !== 0) {
-        rentalRate = parseFloat(String(rateCell.v).replace(/[^0-9.]/g, "")) || null;
-        if (rentalRate === 0) rentalRate = null;
-      }
+    if (rateColIdx >= 0 && row[rateColIdx]) {
+      const v = parseFloat(row[rateColIdx].replace(/[^0-9.]/g, ""));
+      if (v > 0) rentalRate = v;
     }
 
     let firstUser = null;
-    if (firstUserColIdx >= 0) {
-      const fuCell = row.c?.[firstUserColIdx];
-      if (fuCell?.v != null && fuCell.v !== "" && fuCell.v !== 0) {
-        firstUser = parseFloat(String(fuCell.v).replace(/[^0-9.]/g, "")) || null;
-        if (firstUser === 0) firstUser = null;
-      }
+    if (firstUserColIdx >= 0 && row[firstUserColIdx]) {
+      const v = parseFloat(row[firstUserColIdx].replace(/[^0-9.]/g, ""));
+      if (v > 0) firstUser = v;
     }
 
     items.push({ code, rentalRate, firstUser });
@@ -847,6 +850,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("packageType").addEventListener("change", render);
   document.getElementById("packageColor").addEventListener("change", calc);
   document.getElementById("addAddonBtn").addEventListener("click", addAddonRow);
+
+  // Poll for JFCustomWidget — JotForm injects it asynchronously
+  const waitForJotform = () => new Promise(resolve => {
+    if (typeof JFCustomWidget !== "undefined") { resolve(); return; }
+    const interval = setInterval(() => {
+      if (typeof JFCustomWidget !== "undefined") {
+        clearInterval(interval);
+        resolve();
+      }
+    }, 50);
+    // Give up after 5s and proceed without JotForm (standalone mode)
+    setTimeout(() => { clearInterval(interval); resolve(); }, 5000);
+  });
+
+  await waitForJotform();
   setupJotform();
   await loadAllSheets();
 });
