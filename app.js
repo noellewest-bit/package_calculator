@@ -632,11 +632,37 @@ function setupJotform() {
   if (typeof JFCustomWidget === "undefined") return;
   JFCustomWidget.subscribe("submit", () =>
     JFCustomWidget.sendSubmit({ valid: true, value: window.latestSubmissionText || "" }));
-  JFCustomWidget.subscribe("ready", function() {
-    const saved = JFCustomWidget.getWidgetSetting
-      ? JFCustomWidget.getWidgetSetting("value")
-      : null;
-    if (saved && typeof saved === "string" && saved.trim()) {
+  JFCustomWidget.subscribe("ready", function(data) {
+    console.log("[JotForm ready] data:", JSON.stringify(data));
+    // Try 1: value from ready event payload
+    let saved = (data && data.value) ? data.value : null;
+    console.log("[JotForm ready] saved from event:", saved ? saved.substring(0, 80) : "none");
+
+    // Try 2: read directly from the parent JotForm field
+    if (!saved) {
+      try {
+        const t = window.parent && window.parent.document.getElementById("input_110");
+        if (t && t.value && t.value.trim()) saved = t.value.trim();
+      } catch(e) {}
+    }
+
+    // Try 3: postMessage request to parent
+    if (!saved) {
+      try {
+        window.addEventListener("message", function onMsg(e) {
+          try {
+            const msg = JSON.parse(e.data);
+            if (msg && msg.type === "widgetValue" && msg.value && msg.value.trim()) {
+              window.removeEventListener("message", onMsg);
+              restoreFromSummary(msg.value.trim());
+            }
+          } catch(err) {}
+        });
+        window.parent.postMessage(JSON.stringify({ type: "getWidgetValue" }), "*");
+      } catch(e) {}
+    }
+
+    if (saved && saved.trim()) {
       restoreFromSummary(saved.trim());
     } else {
       broadcastToJotform();
