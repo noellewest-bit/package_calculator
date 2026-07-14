@@ -670,31 +670,52 @@ function setupJotform() {
   JFCustomWidget.subscribe("ready", function(data) {
     console.log("[JotForm ready] data:", JSON.stringify(data));
 
-    // Extract submission ID — JotForm puts it in data.sid
+    // Extract submission ID
     let sid = null;
     if (data) {
       sid = data.sid || data.submissionID || data.submissionId || null;
       if (sid) sid = String(sid);
     }
-    // Fallback: parse from the stringified data directly
     if (!sid) {
       try {
         const m = JSON.stringify(data).match(/"sid"\s*:\s*"?(\d+)"?/);
         if (m) sid = m[1];
       } catch(e) {}
     }
-    // Fallback: parse from parent URL
     if (!sid) sid = getSubmissionId();
-
     console.log("[JotForm ready] sid:", sid);
     window._jfSid = sid;
 
-    // Try to restore from localStorage using submission ID
-    const saved = sid ? loadFromLocalStorage(sid) : null;
-    console.log("[JotForm ready] saved from localStorage:", saved ? saved.substring(0, 80) : "none");
+    // Try localStorage first (fastest)
+    const fromStorage = sid ? loadFromLocalStorage(sid) : null;
+    if (fromStorage) {
+      console.log("[JotForm ready] restoring from localStorage");
+      restoreFromSummary(fromStorage);
+      return;
+    }
 
-    if (saved) {
-      restoreFromSummary(saved);
+    // Fetch from JotForm API (works for all submissions, old and new)
+    if (sid) {
+      console.log("[JotForm ready] fetching from JotForm API...");
+      fetch(`https://api.jotform.com/submission/${sid}?apiKey=6b9359da26ff8421a11c7f9dca4553a9`)
+        .then(r => r.json())
+        .then(json => {
+          console.log("[JotForm API] response content:", JSON.stringify(json?.content?.answers?.["110"]));
+          const answer = json?.content?.answers?.["110"];
+          const saved = answer?.answer || answer?.prettyFormat || null;
+          if (saved && saved.trim()) {
+            console.log("[JotForm API] restoring from API:", saved.substring(0, 80));
+            saveToLocalStorage(sid, saved.trim());
+            restoreFromSummary(saved.trim());
+          } else {
+            console.log("[JotForm API] no saved value found");
+            broadcastToJotform();
+          }
+        })
+        .catch(err => {
+          console.log("[JotForm API] fetch failed:", err);
+          broadcastToJotform();
+        });
     } else {
       broadcastToJotform();
     }
