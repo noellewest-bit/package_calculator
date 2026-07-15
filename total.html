@@ -31,9 +31,12 @@ window._pollInterval  = null;
 
 /* ── Generate or retrieve session ID ── */
 function getSessionId() {
-  // Use a fixed session key based on the form ID so all iframes share the same session
-  // The form ID is embedded in the JotForm page URL
-  return "form_242352946598066";
+  // 5-second bucket: all iframes from same page load share this ID
+  // Users loading 5+ seconds apart get different IDs
+  if (!window._calcSessionId) {
+    window._calcSessionId = "load_" + Math.floor(Date.now() / 5000);
+  }
+  return window._calcSessionId;
 }
 
 /* ── Send total to JotForm ── */
@@ -52,7 +55,7 @@ function sendTotal(total) {
 async function pollTotal() {
   if (!window._sessionId) return;
   try {
-    const url = `${APPS_SCRIPT_URL}?action=get&session=${window._sessionId}&nocache=${Date.now()}`;
+    const url = `${APPS_SCRIPT_URL}?action=get&load_id=${window._sessionId}&nocache=${Date.now()}`;
     const res  = await fetch(url);
     const data = await res.json();
     console.log("[TotalWidget] poll result:", JSON.stringify(data));
@@ -102,9 +105,9 @@ async function fetchAndSetTotals(sid) {
 
     // Push these into the Apps Script so the poll loop picks them up too
     if (window._sessionId) {
-      await fetch(`${APPS_SCRIPT_URL}?action=set&session=${window._sessionId}&source=package&total=${pkg}`);
-      await fetch(`${APPS_SCRIPT_URL}?action=set&session=${window._sessionId}&source=rental&total=${rental}`);
-      await fetch(`${APPS_SCRIPT_URL}?action=set&session=${window._sessionId}&source=retail&total=${retail}`);
+      await fetch(`${APPS_SCRIPT_URL}?action=set&load_id=${window._sessionId}&source=package&total=${pkg}`);
+      await fetch(`${APPS_SCRIPT_URL}?action=set&load_id=${window._sessionId}&source=rental&total=${rental}`);
+      await fetch(`${APPS_SCRIPT_URL}?action=set&load_id=${window._sessionId}&source=retail&total=${retail}`);
     }
 
     sendTotal(pkg + rental + retail);
@@ -141,6 +144,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   window._sessionId = getSessionId();
   console.log("[TotalWidget] session:", window._sessionId);
 
+  // Clear any stale data for this session on fresh load
+  fetch(`${APPS_SCRIPT_URL}?action=clear&load_id=${window._sessionId}`).catch(() => {});
+
   // Start polling every 2 seconds
   window._pollInterval = setInterval(pollTotal, 2000);
 
@@ -159,7 +165,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   JFCustomWidget.subscribe("submit", () => {
     // Clear session on submit
     if (window._sessionId) {
-      fetch(`${APPS_SCRIPT_URL}?action=clear&session=${window._sessionId}`).catch(() => {});
+      fetch(`${APPS_SCRIPT_URL}?action=clear&load_id=${window._sessionId}`).catch(() => {});
     }
     JFCustomWidget.sendSubmit({ valid: true, value: window.latestTotal.toFixed(2) });
   });
