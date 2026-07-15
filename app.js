@@ -635,22 +635,30 @@ function broadcastToJotform() {
   // Save to localStorage keyed by submission ID
   if (window._jfSid) saveToLocalStorage(window._jfSid, value);
 
-  // 1. Send grand total as widget numeric value (so JotForm Calculate Field can use it)
+  // 1. Send full summary as widget value (so JotForm condition copies it to field 110)
   if (typeof JFCustomWidget !== "undefined") {
-    try { JFCustomWidget.sendData({ value: totalNum.toFixed(2) }); } catch(e) {}
+    try { JFCustomWidget.sendData({ value }); } catch(e) {}
   }
 
-  // 2. Direct DOM injection — summary to input_110, total to input_110 handled by condition
+  // 2. Direct DOM injection into parent JotForm fields
   try {
     if (window.parent && window.parent !== window) {
-      // Write full summary to input_110
+      // Full summary → input_110
       const summary = window.parent.document.getElementById("input_110");
       if (summary) {
         summary.value = value;
         summary.dispatchEvent(new Event("input",  { bubbles: true }));
         summary.dispatchEvent(new Event("change", { bubbles: true }));
       }
-      // Write numeric total to input_139 (the widget field itself) so Calculate Field picks it up
+      // Grand total number → input_140
+      const totalField = window.parent.document.getElementById("input_140");
+      if (totalField) {
+        totalField.value = totalNum.toFixed(2);
+        totalField.dispatchEvent(new Event("input",  { bubbles: true }));
+        totalField.dispatchEvent(new Event("change", { bubbles: true }));
+        totalField.dispatchEvent(new Event("keyup",  { bubbles: true }));
+      }
+      // Also write to input_139 (widget field) so Calculate Field condition picks up the number
       const widgetField = window.parent.document.getElementById("input_139");
       if (widgetField) {
         widgetField.value = totalNum.toFixed(2);
@@ -658,7 +666,7 @@ function broadcastToJotform() {
         widgetField.dispatchEvent(new Event("change", { bubbles: true }));
         widgetField.dispatchEvent(new Event("keyup",  { bubbles: true }));
       }
-      window.parent.postMessage(JSON.stringify({ type: "widgetValue", value: totalNum.toFixed(2), valid: true }), "*");
+      window.parent.postMessage(JSON.stringify({ type: "widgetValue", value, valid: true }), "*");
     }
   } catch(e) {}
 }
@@ -693,9 +701,7 @@ function setupJotform() {
   if (typeof JFCustomWidget === "undefined") return;
 
   JFCustomWidget.subscribe("submit", () => {
-    const totalText = document.getElementById("grandTotal")?.textContent || "0.00";
-    const totalNum = parseFloat(totalText.replace(/,/g, "")) || 0;
-    JFCustomWidget.sendSubmit({ valid: true, value: totalNum.toFixed(2) });
+    JFCustomWidget.sendSubmit({ valid: true, value: window.latestSubmissionText || "" });
   });
 
   JFCustomWidget.subscribe("ready", function(data) {
