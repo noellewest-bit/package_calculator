@@ -606,6 +606,8 @@ function calc() {
   }
 
   const lines = [];
+  // First line is the plain number so JotForm can extract it with LEFT()
+  lines.push((packTotal + addonTotal).toFixed(2));
   lines.push("PACKAGE: " + packageNames[pkg]);
   if (packageColor) lines.push("PACKAGE COLOR: " + packageColor);
   lines.push("");
@@ -619,7 +621,6 @@ function calc() {
   lines.push("PACKAGE SUBTOTAL: ₱" + money(packTotal));
   lines.push("ADD-ON SUBTOTAL: ₱"  + money(addonTotal));
   lines.push("GRAND TOTAL: ₱"      + money(packTotal + addonTotal));
-  lines.push((packTotal + addonTotal).toFixed(2));
 
   window.latestSubmissionText = lines.join("\n");
   broadcastToJotform();
