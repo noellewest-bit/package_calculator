@@ -111,23 +111,37 @@ function sendTotal(total) {
 // We also listen for a custom "calcUpdate" type we'll add to each calculator
 const totals = { package: 0, rental: 0, retail: 0 };
 
-window.addEventListener("message", function(e) {
+// Listen for postMessage broadcasts from all three calculators
+// They post to window.top; we listen here and also try to relay via top
+
+function handleCalcMessage(e) {
   try {
     const msg = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
-    if (!msg || !msg.grandTotal) return;
+    if (!msg || !msg.grandTotal || !msg.source) return;
 
     const amount = parseFloat(msg.grandTotal) || 0;
-    const source = msg.source || "";
+    const source = msg.source;
 
     if (source === "package_calculator") totals.package = amount;
     else if (source === "rental_calculator") totals.rental = amount;
     else if (source === "retail_calculator") totals.retail = amount;
+    else return;
 
     console.log("[TotalWidget] received from:", source, "amount:", amount, "| totals:", totals);
     const combined = totals.package + totals.rental + totals.retail;
     sendTotal(combined);
   } catch(e) {}
-});
+}
+
+// Listen on own window (in case top relays back down)
+window.addEventListener("message", handleCalcMessage);
+
+// Also try to attach listener to top window so we intercept messages posted there
+try {
+  window.top.addEventListener("message", handleCalcMessage);
+} catch(e) {
+  console.log("[TotalWidget] could not attach to window.top:", e.message);
+}
 
 /* ── JotForm integration ── */
 function getSubmissionId(data) {
