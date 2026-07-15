@@ -7,7 +7,12 @@ const SHEET_ID = "1-QD9UJ99Rjl1JPlBdKPo7hz5MBOiJKkMyD-qWlD520s";
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJhhGu_5QfQYmOfswMNZPRGxnKD8PgU5DxKAI6DFCKgPUlU4gX7H-FKLOWoV6Ea65B/exec";
 
 function getSessionId() {
-  return "form_242352946598066";
+  // 5-second bucket: all iframes from same page load share this ID
+  // Users loading 5+ seconds apart get different IDs
+  if (!window._calcSessionId) {
+    window._calcSessionId = "load_" + Math.floor(Date.now() / 5000);
+  }
+  return window._calcSessionId;
 }
 
 const ALL_SHEETS = [
@@ -646,7 +651,7 @@ function broadcastToJotform() {
   try {
     const sid = getSessionId();
     console.log("[AppScript] pinging with session:", sid, "total:", totalNum.toFixed(2));
-    fetch(`${APPS_SCRIPT_URL}?action=set&session=${sid}&source=package&total=${totalNum.toFixed(2)}`)
+    fetch(`${APPS_SCRIPT_URL}?action=set&load_id=${sid}&source=package&total=${totalNum.toFixed(2)}`)
       .then(r => r.json())
       .then(d => console.log("[AppScript] response:", JSON.stringify(d)))
       .catch(e => console.log("[AppScript] fetch error:", e.message));
