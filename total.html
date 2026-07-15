@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Total Widget</title>
+  <script src="https://js.jotform.com/JotFormCustomWidget.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: transparent; overflow: hidden; }
+  </style>
+</head>
+<body>
+<script>
+/* ══════════════════════════════════════════════
+   TOTAL WIDGET
+   Reads grand totals from all three calculators
+   via JotForm API and sends combined total to JotForm
+══════════════════════════════════════════════ */
+
+const API_KEY  = "6b9359da26ff8421a11c7f9dca4553a9";
+const FORM_ID  = "242352946598066";
+
+// Field IDs for each calculator's summary field
+const FIELD_PACKAGE = "139"; // Package Calculator  → field 139 (summary in 110)
+const FIELD_RENTAL  = "135"; // Rental Calculator   → field 135 (summary in 115)
+const FIELD_RETAIL  = "133"; // Retail Calculator   → field 133 (summary in 116)
+
+window.latestTotal = 0;
+
+/* ── Parse totals from each calculator's summary text ── */
+
+function parsePackageTotal(text) {
+  // Last line is the plain number e.g. "561.00"
+  // Fallback: "GRAND TOTAL: ₱561.00"
+  if (!text || !text.trim()) return 0;
+  const lines = text.trim().split("\n");
+  const last = lines[lines.length - 1].trim();
+  const plain = parseFloat(last.replace(/[^0-9.]/g, ""));
+  if (!isNaN(plain) && plain > 0) return plain;
+  // Fallback: find GRAND TOTAL line
+  const gt = lines.find(l => l.includes("GRAND TOTAL"));
+  if (gt) return parseFloat(gt.replace(/[^0-9.]/g, "")) || 0;
+  return 0;
+}
+
+function parseRentalTotal(text) {
+  // "RENTAL TOTAL: ₱1,500.00"
+  if (!text || !text.trim()) return 0;
+  const line = text.split("\n").find(l => l.includes("RENTAL TOTAL"));
+  if (line) return parseFloat(line.replace(/[^0-9.]/g, "")) || 0;
+  return 0;
+}
+
+function parseRetailTotal(text) {
+  // Lines: "Product Name: X, Amount: 1500"
+  // Sum all Amount: values
+  if (!text || !text.trim() || text === "No items selected") return 0;
+  let total = 0;
+  for (const line of text.split("\n")) {
+    const m = line.match(/Amount:\s*([\d.]+)/i);
+    if (m) total += parseFloat(m[1]) || 0;
+  }
+  return total;
+}
+
+/* ── Fetch submission answers from JotForm API ── */
+async function fetchSubmissionTotals(sid) {
+  const url = `https://api.jotform.com/submission/${sid}?apiKey=${API_KEY}&nocache=${Date.now()}`;
+  const res  = await fetch(url);
+  const json = await res.json();
+  const answers = json?.content?.answers || {};
+
+  const packageText = answers[FIELD_PACKAGE]?.answer || "";
+  const rentalText  = answers[FIELD_RENTAL]?.answer  || "";
+  const retailText  = answers[FIELD_RETAIL]?.answer  || "";
+
+  return {
+    package: parsePackageTotal(packageText),
+    rental:  parseRentalTotal(rentalText),
+    retail:  parseRetailTotal(retailText)
+  };
+}
+
+/* ── Broadcast total to JotForm ── */
+function sendTotal(total) {
+  window.latestTotal = total;
+  const formatted = total.toFixed(2);
+  console.log("[TotalWidget] sending total:", formatted);
+
+  if (typeof JFCustomWidget !== "undefined") {
+    try { JFCustomWidget.sendData({ value: formatted }); } catch(e) {}
+  }
+
+  // Also write directly to parent DOM
+  try {
+    if (window.parent && window.parent !== window) {
+      const t = window.parent.document.getElementById("input_141");
+      if (t) {
+        t.value = formatted;
+        t.dispatchEvent(new Event("input",  { bubbles: true }));
+        t.dispatchEvent(new Event("change", { bubbles: true }));
+        t.dispatchEvent(new Event("keyup",  { bubbles: true }));
+      }
+    }
+  } catch(e) {}
+}
+
+/* ── Listen for postMessage from any of the three calculators ── */
+// Each calculator broadcasts: JSON.stringify({ type: "widgetValue", value, valid: true })
+// We also listen for a custom "calcUpdate" type we'll add to each calculator
+const totals = { package: 0, rental: 0, retail: 0 };
+
+window.addEventListener("message", function(e) {
+  try {
+    const msg = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+    if (!msg) return;
+
+    // Identify which calculator sent this by origin
+    const origin = e.origin || "";
+    if (origin.includes("package_calculator")) {
+      totals.package = parseFloat(msg.grandTotal || 0);
+    } else if (origin.includes("noelle-west-rentals")) {
+      totals.rental = parseFloat(msg.grandTotal || 0);
+    } else if (origin.includes("noelle-west-retail")) {
+      totals.retail = parseFloat(msg.grandTotal || 0);
+    }
+
+    const combined = totals.package + totals.rental + totals.retail;
+    if (combined > 0) sendTotal(combined);
+  } catch(e) {}
+});
+
+/* ── JotForm integration ── */
+function getSubmissionId(data) {
+  let sid = null;
+  if (data) {
+    sid = data.sid || data.submissionID || data.submissionId || null;
+    if (sid) sid = String(sid);
+  }
+  if (!sid) {
+    try {
+      const m = JSON.stringify(data).match(/"sid"\s*:\s*"?(\d+)"?/);
+      if (m) sid = m[1];
+    } catch(e) {}
+  }
+  if (!sid) {
+    try {
+      const parentUrl = window.parent.location.href;
+      const m = parentUrl.match(/\/edit\/(\d+)/);
+      if (m) sid = m[1];
+    } catch(e) {}
+  }
+  return sid;
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  const waitForJotform = () => new Promise(resolve => {
+    if (typeof JFCustomWidget !== "undefined") { resolve(); return; }
+    const interval = setInterval(() => {
+      if (typeof JFCustomWidget !== "undefined") { clearInterval(interval); resolve(); }
+    }, 50);
+    setTimeout(() => { clearInterval(interval); resolve(); }, 5000);
+  });
+
+  await waitForJotform();
+
+  if (typeof JFCustomWidget === "undefined") return;
+
+  JFCustomWidget.subscribe("submit", () => {
+    JFCustomWidget.sendSubmit({ valid: true, value: window.latestTotal.toFixed(2) });
+  });
+
+  JFCustomWidget.subscribe("ready", async function(data) {
+    console.log("[TotalWidget ready] data:", JSON.stringify(data));
+    const sid = getSubmissionId(data);
+    console.log("[TotalWidget ready] sid:", sid);
+
+    if (sid) {
+      try {
+        const t = await fetchSubmissionTotals(sid);
+        console.log("[TotalWidget] fetched totals:", t);
+        const combined = t.package + t.rental + t.retail;
+        sendTotal(combined);
+      } catch(err) {
+        console.log("[TotalWidget] API fetch failed:", err.message);
+        sendTotal(0);
+      }
+    } else {
+      sendTotal(0);
+    }
+  });
+});
+</script>
+</body>
+</html>
