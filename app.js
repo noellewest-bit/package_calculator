@@ -638,8 +638,7 @@ function broadcastToJotform() {
     try { JFCustomWidget.sendData({ value }); } catch(e) {}
   }
 
-  // 2. Direct DOM injection into parent JotForm field
-
+  // 2. Direct DOM injection into parent JotForm fields
   try {
     if (window.parent && window.parent !== window) {
       const t = window.parent.document.getElementById("input_110");
@@ -647,6 +646,17 @@ function broadcastToJotform() {
         t.value = value;
         t.dispatchEvent(new Event("input",  { bubbles: true }));
         t.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      const grandTotalEl = window.parent.document.getElementById("input_140");
+      if (grandTotalEl) {
+        const totalText = document.getElementById("grandTotal")?.textContent || "0.00";
+        const totalNum = parseFloat(totalText.replace(/,/g, "")) || 0;
+        grandTotalEl.focus();
+        grandTotalEl.value = totalNum.toFixed(2);
+        grandTotalEl.dispatchEvent(new Event("input",  { bubbles: true }));
+        grandTotalEl.dispatchEvent(new Event("change", { bubbles: true }));
+        grandTotalEl.dispatchEvent(new Event("keyup",  { bubbles: true }));
+        grandTotalEl.blur();
       }
       window.parent.postMessage(JSON.stringify({ type: "widgetValue", value, valid: true }), "*");
     }
