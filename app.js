@@ -606,8 +606,6 @@ function calc() {
   }
 
   const lines = [];
-  // First line is the plain number so JotForm can extract it with LEFT()
-  lines.push((packTotal + addonTotal).toFixed(2));
   lines.push("PACKAGE: " + packageNames[pkg]);
   if (packageColor) lines.push("PACKAGE COLOR: " + packageColor);
   lines.push("");
