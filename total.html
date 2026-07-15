@@ -11,6 +11,7 @@
   </style>
 </head>
 <body>
+<div id="debug" style="font-size:10px;color:#999;padding:2px;">Total: 0.00</div>
 <script>
 /* ══════════════════════════════════════════════
    TOTAL WIDGET — Google Apps Script relay
@@ -48,6 +49,8 @@ function sendTotal(total) {
   window.latestTotal = total;
   const formatted = total.toFixed(2);
   console.log("[TotalWidget] sending total:", formatted);
+  const dbg = document.getElementById("debug");
+  if (dbg) dbg.textContent = "Total: " + formatted;
   if (typeof JFCustomWidget !== "undefined") {
     try { JFCustomWidget.sendData({ value: formatted }); } catch(e) {}
   }
