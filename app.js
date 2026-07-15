@@ -658,14 +658,6 @@ function broadcastToJotform() {
         totalField.dispatchEvent(new Event("change", { bubbles: true }));
         totalField.dispatchEvent(new Event("keyup",  { bubbles: true }));
       }
-      // Also write to input_139 (widget field) so Calculate Field condition picks up the number
-      const widgetField = window.parent.document.getElementById("input_139");
-      if (widgetField) {
-        widgetField.value = totalNum.toFixed(2);
-        widgetField.dispatchEvent(new Event("input",  { bubbles: true }));
-        widgetField.dispatchEvent(new Event("change", { bubbles: true }));
-        widgetField.dispatchEvent(new Event("keyup",  { bubbles: true }));
-      }
       window.parent.postMessage(JSON.stringify({ type: "widgetValue", value, valid: true }), "*");
     }
   } catch(e) {}
