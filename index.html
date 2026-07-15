@@ -3,182 +3,71 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Total Widget</title>
+  <title>Wedding Entourage Package Calculator</title>
   <script src="https://js.jotform.com/JotFormCustomWidget.min.js"></script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: transparent; overflow: hidden; }
-  </style>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<div id="debug" style="font-size:10px;color:#999;padding:2px;">Total: 0.00</div>
-<script>
-/* ══════════════════════════════════════════════
-   TOTAL WIDGET — Google Apps Script relay
-══════════════════════════════════════════════ */
 
-// !! REPLACE THIS with your deployed Apps Script URL after deploying
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJhhGu_5QfQYmOfswMNZPRGxnKD8PgU5DxKAI6DFCKgPUlU4gX7H-FKLOWoV6Ea65B/exec";
+  <div id="loadingOverlay">
+    <div class="spinner"></div>
+    <div>Loading inventory data…</div>
+  </div>
 
-const API_KEY  = "6b9359da26ff8421a11c7f9dca4553a9";
-const FIELD_PACKAGE = "139";
-const FIELD_RENTAL  = "135";
-const FIELD_RETAIL  = "133";
+  <h1>Wedding Entourage Package Calculator</h1>
 
-window.latestTotal    = 0;
-window._sessionId     = null;
-window._pollInterval  = null;
+  <!-- PACKAGE SELECTOR -->
+  <div class="section">
+    <h3>Package</h3>
+    <div style="display:grid;gap:10px;">
+      <select id="packageType">
+        <option value="5200">PACKAGE 1C (SPANDEX)</option>
+        <option value="6200">PACKAGE 2C (CHIFFON)</option>
+        <option value="7000">PACKAGE 3C (SPANDEX)</option>
+        <option value="8200">PACKAGE 4C (CHIFFON)</option>
+      </select>
+      <select id="packageColor">
+        <option value="">— Select Package Color —</option>
+      </select>
+    </div>
+  </div>
 
-/* ── Generate or retrieve session ID ── */
-function getSessionId() {
-  // Use a fixed session key based on the form ID so all iframes share the same session
-  // The form ID is embedded in the JotForm page URL
-  return "form_242352946598066";
-}
+  <!-- PACKAGE ITEMS -->
+  <div class="section">
+    <h3>Package Items</h3>
+    <div class="pkg-header">
+      <div>Item</div>
+      <div>Qty</div>
+      <div>Unit Price</div>
+      <div>Subtotal</div>
+    </div>
+    <div id="itemRows"></div>
+  </div>
 
-/* ── Send total to JotForm ── */
-function sendTotal(total) {
-  window.latestTotal = total;
-  const formatted = total.toFixed(2);
-  console.log("[TotalWidget] sending total:", formatted);
-  const dbg = document.getElementById("debug");
-  if (dbg) dbg.textContent = "Total: " + formatted;
-  if (typeof JFCustomWidget !== "undefined") {
-    try { JFCustomWidget.sendData({ value: formatted }); } catch(e) {}
-  }
-}
+  <!-- ADD-ONS -->
+  <div class="section">
+    <h3>Add-On Items <span style="font-weight:400;color:#b08a50;font-size:0.75rem;">(20% OFF Regular Rate)</span></h3>
+    <div class="addon-header">
+      <div>Category</div>
+      <div>Item Code</div>
+      <div>Price Type</div>
+      <div>Qty</div>
+      <div>Regular</div>
+      <div>Charged</div>
+      <div></div>
+    </div>
+    <div id="addonRows"></div>
+    <button class="btn-add" id="addAddonBtn">+ Add Item</button>
+  </div>
 
-/* ── Poll Apps Script for combined total ── */
-async function pollTotal() {
-  if (!window._sessionId) return;
-  try {
-    const url = `${APPS_SCRIPT_URL}?action=get&session=${window._sessionId}&nocache=${Date.now()}`;
-    const res  = await fetch(url);
-    const data = await res.json();
-    if (data.combined !== undefined) {
-      const combined = parseFloat(data.combined) || 0;
-      if (combined !== window.latestTotal) {
-        sendTotal(combined);
-      }
-    }
-  } catch(e) {}
-}
+  <!-- TOTALS -->
+  <div class="totals">
+    <div class="total-row"><span>Package Subtotal</span><span>₱<span id="packageSubtotal">0.00</span></span></div>
+    <div class="total-row"><span>Add-On Subtotal</span><span>₱<span id="addonSubtotal">0.00</span></span></div>
+    <div class="total-row grand"><span>Grand Total</span><span>₱<span id="grandTotal">0.00</span></span></div>
+  </div>
 
-/* ── Fetch from JotForm API on edit ── */
-function parsePackageTotal(text) {
-  if (!text || !text.trim()) return 0;
-  const lines = text.trim().split("\n");
-  const gt = lines.find(l => l.includes("GRAND TOTAL"));
-  if (gt) return parseFloat(gt.replace(/[^0-9.]/g, "")) || 0;
-  return 0;
-}
-function parseRentalTotal(text) {
-  if (!text || !text.trim()) return 0;
-  const line = text.split("\n").find(l => l.includes("RENTAL TOTAL"));
-  if (line) return parseFloat(line.replace(/[^0-9.]/g, "")) || 0;
-  return 0;
-}
-function parseRetailTotal(text) {
-  if (!text || !text.trim() || text === "No items selected") return 0;
-  let total = 0;
-  for (const line of text.split("\n")) {
-    const m = line.match(/Amount:\s*([\d.]+)/i);
-    if (m) total += parseFloat(m[1]) || 0;
-  }
-  return total;
-}
+  <script src="app.js"></script>
 
-async function fetchAndSetTotals(sid) {
-  try {
-    const url  = `https://api.jotform.com/submission/${sid}?apiKey=${API_KEY}&nocache=${Date.now()}`;
-    const res  = await fetch(url);
-    const json = await res.json();
-    const answers = json?.content?.answers || {};
-
-    const pkg    = parsePackageTotal(answers[FIELD_PACKAGE]?.answer || "");
-    const rental = parseRentalTotal(answers[FIELD_RENTAL]?.answer   || "");
-    const retail = parseRetailTotal(answers[FIELD_RETAIL]?.answer   || "");
-
-    console.log("[TotalWidget] from API — pkg:", pkg, "rental:", rental, "retail:", retail);
-
-    // Push these into the Apps Script so the poll loop picks them up too
-    if (window._sessionId) {
-      await fetch(`${APPS_SCRIPT_URL}?action=set&session=${window._sessionId}&source=package&total=${pkg}`);
-      await fetch(`${APPS_SCRIPT_URL}?action=set&session=${window._sessionId}&source=rental&total=${rental}`);
-      await fetch(`${APPS_SCRIPT_URL}?action=set&session=${window._sessionId}&source=retail&total=${retail}`);
-    }
-
-    sendTotal(pkg + rental + retail);
-  } catch(err) {
-    console.log("[TotalWidget] API fetch failed:", err.message);
-    sendTotal(0);
-  }
-}
-
-function getSubmissionId(data) {
-  let sid = null;
-  if (data) {
-    sid = data.sid || data.submissionID || data.submissionId || null;
-    if (sid) sid = String(sid);
-  }
-  if (!sid) {
-    try {
-      const m = JSON.stringify(data).match(/"sid"\s*:\s*"?(\d+)"?/);
-      if (m) sid = m[1];
-    } catch(e) {}
-  }
-  if (!sid) {
-    try {
-      const parentUrl = window.parent.location.href;
-      const m = parentUrl.match(/\/edit\/(\d+)/);
-      if (m) sid = m[1];
-    } catch(e) {}
-  }
-  return sid;
-}
-
-/* ── Init ── */
-document.addEventListener("DOMContentLoaded", async () => {
-  window._sessionId = getSessionId();
-  console.log("[TotalWidget] session:", window._sessionId);
-
-  // Start polling every 2 seconds
-  window._pollInterval = setInterval(pollTotal, 2000);
-
-  const waitForJotform = () => new Promise(resolve => {
-    if (typeof JFCustomWidget !== "undefined") { resolve(); return; }
-    const interval = setInterval(() => {
-      if (typeof JFCustomWidget !== "undefined") { clearInterval(interval); resolve(); }
-    }, 50);
-    setTimeout(() => { clearInterval(interval); resolve(); }, 5000);
-  });
-
-  await waitForJotform();
-
-  if (typeof JFCustomWidget === "undefined") return;
-
-  JFCustomWidget.subscribe("submit", () => {
-    // Clear session on submit
-    if (window._sessionId) {
-      fetch(`${APPS_SCRIPT_URL}?action=clear&session=${window._sessionId}`).catch(() => {});
-    }
-    JFCustomWidget.sendSubmit({ valid: true, value: window.latestTotal.toFixed(2) });
-  });
-
-  JFCustomWidget.subscribe("ready", async function(data) {
-    console.log("[TotalWidget ready] data:", JSON.stringify(data));
-    const sid = getSubmissionId(data);
-    console.log("[TotalWidget ready] sid:", sid);
-
-    if (sid) {
-      // Edit mode — fetch from JotForm API
-      await fetchAndSetTotals(sid);
-    } else {
-      // New form — start fresh, poll will pick up values as calculators update
-      sendTotal(0);
-    }
-  });
-});
-</script>
 </body>
 </html>
