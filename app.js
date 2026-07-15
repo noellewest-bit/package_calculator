@@ -3,6 +3,20 @@
 ══════════════════════════════════════════════ */
 const SHEET_ID = "1-QD9UJ99Rjl1JPlBdKPo7hz5MBOiJKkMyD-qWlD520s";
 
+// !! REPLACE THIS with your deployed Apps Script URL after deploying
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJhhGu_5QfQYmOfswMNZPRGxnKD8PgU5DxKAI6DFCKgPUlU4gX7H-FKLOWoV6Ea65B/exec";
+
+function getSessionId() {
+  try {
+    let sid = sessionStorage.getItem("calc_session");
+    if (!sid) {
+      sid = "s_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+      sessionStorage.setItem("calc_session", sid);
+    }
+    return sid;
+  } catch(e) { return "s_" + Date.now(); }
+}
+
 const ALL_SHEETS = [
   "BGS","BGI","PGS","PGI","MOH","BMG","FGG","PGC","FIL",
   "MG","CD","MS","CS","PET-#","PET","BCPO","BOY","BPSC",
@@ -634,6 +648,15 @@ function broadcastToJotform() {
 
   // Save to localStorage keyed by submission ID
   if (window._jfSid) saveToLocalStorage(window._jfSid, value);
+
+  // Ping Apps Script with grand total
+  if (APPS_SCRIPT_URL !== "https://script.google.com/macros/s/AKfycbwJhhGu_5QfQYmOfswMNZPRGxnKD8PgU5DxKAI6DFCKgPUlU4gX7H-FKLOWoV6Ea65B/exec") {
+    try {
+      const sid = getSessionId();
+      fetch(`${APPS_SCRIPT_URL}?action=set&session=${sid}&source=package&total=${totalNum.toFixed(2)}`)
+        .catch(() => {});
+    } catch(e) {}
+  }
 
   // 1. Send full summary as widget value (so JotForm condition copies it to field 110)
   if (typeof JFCustomWidget !== "undefined") {
