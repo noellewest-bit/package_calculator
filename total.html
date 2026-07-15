@@ -114,20 +114,18 @@ const totals = { package: 0, rental: 0, retail: 0 };
 window.addEventListener("message", function(e) {
   try {
     const msg = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
-    if (!msg) return;
+    if (!msg || !msg.grandTotal) return;
 
-    // Identify which calculator sent this by origin
-    const origin = e.origin || "";
-    if (origin.includes("package_calculator")) {
-      totals.package = parseFloat(msg.grandTotal || 0);
-    } else if (origin.includes("noelle-west-rentals")) {
-      totals.rental = parseFloat(msg.grandTotal || 0);
-    } else if (origin.includes("noelle-west-retail")) {
-      totals.retail = parseFloat(msg.grandTotal || 0);
-    }
+    const amount = parseFloat(msg.grandTotal) || 0;
+    const source = msg.source || "";
 
+    if (source === "package_calculator") totals.package = amount;
+    else if (source === "rental_calculator") totals.rental = amount;
+    else if (source === "retail_calculator") totals.retail = amount;
+
+    console.log("[TotalWidget] received from:", source, "amount:", amount, "| totals:", totals);
     const combined = totals.package + totals.rental + totals.retail;
-    if (combined > 0) sendTotal(combined);
+    sendTotal(combined);
   } catch(e) {}
 });
 
