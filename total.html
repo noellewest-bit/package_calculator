@@ -13,48 +13,77 @@
 <body>
 <script>
 /* ══════════════════════════════════════════════
-   TOTAL WIDGET
-   Reads grand totals from all three calculators
-   via JotForm API and sends combined total to JotForm
+   TOTAL WIDGET — Google Apps Script relay
 ══════════════════════════════════════════════ */
 
+// !! REPLACE THIS with your deployed Apps Script URL after deploying
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJhhGu_5QfQYmOfswMNZPRGxnKD8PgU5DxKAI6DFCKgPUlU4gX7H-FKLOWoV6Ea65B/exec";
+
 const API_KEY  = "6b9359da26ff8421a11c7f9dca4553a9";
-const FORM_ID  = "242352946598066";
+const FIELD_PACKAGE = "139";
+const FIELD_RENTAL  = "135";
+const FIELD_RETAIL  = "133";
 
-// Field IDs for each calculator's summary field
-const FIELD_PACKAGE = "139"; // Package Calculator  → field 139 (summary in 110)
-const FIELD_RENTAL  = "135"; // Rental Calculator   → field 135 (summary in 115)
-const FIELD_RETAIL  = "133"; // Retail Calculator   → field 133 (summary in 116)
+window.latestTotal    = 0;
+window._sessionId     = null;
+window._pollInterval  = null;
 
-window.latestTotal = 0;
+/* ── Generate or retrieve session ID ── */
+function getSessionId() {
+  // Use localStorage so the same browser tab keeps the same session
+  try {
+    let sid = sessionStorage.getItem("calc_session");
+    if (!sid) {
+      sid = "s_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+      sessionStorage.setItem("calc_session", sid);
+    }
+    return sid;
+  } catch(e) {
+    return "s_" + Date.now();
+  }
+}
 
-/* ── Parse totals from each calculator's summary text ── */
+/* ── Send total to JotForm ── */
+function sendTotal(total) {
+  window.latestTotal = total;
+  const formatted = total.toFixed(2);
+  console.log("[TotalWidget] sending total:", formatted);
+  if (typeof JFCustomWidget !== "undefined") {
+    try { JFCustomWidget.sendData({ value: formatted }); } catch(e) {}
+  }
+}
 
+/* ── Poll Apps Script for combined total ── */
+async function pollTotal() {
+  if (!window._sessionId || !APPS_SCRIPT_URL || APPS_SCRIPT_URL === "https://script.google.com/macros/s/AKfycbwJhhGu_5QfQYmOfswMNZPRGxnKD8PgU5DxKAI6DFCKgPUlU4gX7H-FKLOWoV6Ea65B/exec") return;
+  try {
+    const url = `${APPS_SCRIPT_URL}?action=get&session=${window._sessionId}&nocache=${Date.now()}`;
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (data.combined !== undefined) {
+      const combined = parseFloat(data.combined) || 0;
+      if (combined !== window.latestTotal) {
+        sendTotal(combined);
+      }
+    }
+  } catch(e) {}
+}
+
+/* ── Fetch from JotForm API on edit ── */
 function parsePackageTotal(text) {
-  // Last line is the plain number e.g. "561.00"
-  // Fallback: "GRAND TOTAL: ₱561.00"
   if (!text || !text.trim()) return 0;
   const lines = text.trim().split("\n");
-  const last = lines[lines.length - 1].trim();
-  const plain = parseFloat(last.replace(/[^0-9.]/g, ""));
-  if (!isNaN(plain) && plain > 0) return plain;
-  // Fallback: find GRAND TOTAL line
   const gt = lines.find(l => l.includes("GRAND TOTAL"));
   if (gt) return parseFloat(gt.replace(/[^0-9.]/g, "")) || 0;
   return 0;
 }
-
 function parseRentalTotal(text) {
-  // "RENTAL TOTAL: ₱1,500.00"
   if (!text || !text.trim()) return 0;
   const line = text.split("\n").find(l => l.includes("RENTAL TOTAL"));
   if (line) return parseFloat(line.replace(/[^0-9.]/g, "")) || 0;
   return 0;
 }
-
 function parseRetailTotal(text) {
-  // Lines: "Product Name: X, Amount: 1500"
-  // Sum all Amount: values
   if (!text || !text.trim() || text === "No items selected") return 0;
   let total = 0;
   for (const line of text.split("\n")) {
@@ -64,86 +93,33 @@ function parseRetailTotal(text) {
   return total;
 }
 
-/* ── Fetch submission answers from JotForm API ── */
-async function fetchSubmissionTotals(sid) {
-  const url = `https://api.jotform.com/submission/${sid}?apiKey=${API_KEY}&nocache=${Date.now()}`;
-  const res  = await fetch(url);
-  const json = await res.json();
-  const answers = json?.content?.answers || {};
-
-  const packageText = answers[FIELD_PACKAGE]?.answer || "";
-  const rentalText  = answers[FIELD_RENTAL]?.answer  || "";
-  const retailText  = answers[FIELD_RETAIL]?.answer  || "";
-
-  return {
-    package: parsePackageTotal(packageText),
-    rental:  parseRentalTotal(rentalText),
-    retail:  parseRetailTotal(retailText)
-  };
-}
-
-/* ── Broadcast total to JotForm ── */
-function sendTotal(total) {
-  window.latestTotal = total;
-  const formatted = total.toFixed(2);
-  console.log("[TotalWidget] sending total:", formatted);
-
-  if (typeof JFCustomWidget !== "undefined") {
-    try { JFCustomWidget.sendData({ value: formatted }); } catch(e) {}
-  }
-
-  // Also write directly to parent DOM
+async function fetchAndSetTotals(sid) {
   try {
-    if (window.parent && window.parent !== window) {
-      const t = window.parent.document.getElementById("input_141");
-      if (t) {
-        t.value = formatted;
-        t.dispatchEvent(new Event("input",  { bubbles: true }));
-        t.dispatchEvent(new Event("change", { bubbles: true }));
-        t.dispatchEvent(new Event("keyup",  { bubbles: true }));
-      }
+    const url  = `https://api.jotform.com/submission/${sid}?apiKey=${API_KEY}&nocache=${Date.now()}`;
+    const res  = await fetch(url);
+    const json = await res.json();
+    const answers = json?.content?.answers || {};
+
+    const pkg    = parsePackageTotal(answers[FIELD_PACKAGE]?.answer || "");
+    const rental = parseRentalTotal(answers[FIELD_RENTAL]?.answer   || "");
+    const retail = parseRetailTotal(answers[FIELD_RETAIL]?.answer   || "");
+
+    console.log("[TotalWidget] from API — pkg:", pkg, "rental:", rental, "retail:", retail);
+
+    // Push these into the Apps Script so the poll loop picks them up too
+    if (window._sessionId && APPS_SCRIPT_URL !== "https://script.google.com/macros/s/AKfycbwJhhGu_5QfQYmOfswMNZPRGxnKD8PgU5DxKAI6DFCKgPUlU4gX7H-FKLOWoV6Ea65B/exec") {
+      await fetch(`${APPS_SCRIPT_URL}?action=set&session=${window._sessionId}&source=package&total=${pkg}`);
+      await fetch(`${APPS_SCRIPT_URL}?action=set&session=${window._sessionId}&source=rental&total=${rental}`);
+      await fetch(`${APPS_SCRIPT_URL}?action=set&session=${window._sessionId}&source=retail&total=${retail}`);
     }
-  } catch(e) {}
+
+    sendTotal(pkg + rental + retail);
+  } catch(err) {
+    console.log("[TotalWidget] API fetch failed:", err.message);
+    sendTotal(0);
+  }
 }
 
-/* ── Listen for postMessage from any of the three calculators ── */
-// Each calculator broadcasts: JSON.stringify({ type: "widgetValue", value, valid: true })
-// We also listen for a custom "calcUpdate" type we'll add to each calculator
-const totals = { package: 0, rental: 0, retail: 0 };
-
-// Listen for postMessage broadcasts from all three calculators
-// They post to window.top; we listen here and also try to relay via top
-
-function handleCalcMessage(e) {
-  try {
-    const msg = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
-    if (!msg || !msg.grandTotal || !msg.source) return;
-
-    const amount = parseFloat(msg.grandTotal) || 0;
-    const source = msg.source;
-
-    if (source === "package_calculator") totals.package = amount;
-    else if (source === "rental_calculator") totals.rental = amount;
-    else if (source === "retail_calculator") totals.retail = amount;
-    else return;
-
-    console.log("[TotalWidget] received from:", source, "amount:", amount, "| totals:", totals);
-    const combined = totals.package + totals.rental + totals.retail;
-    sendTotal(combined);
-  } catch(e) {}
-}
-
-// Listen on own window (in case top relays back down)
-window.addEventListener("message", handleCalcMessage);
-
-// Also try to attach listener to top window so we intercept messages posted there
-try {
-  window.top.addEventListener("message", handleCalcMessage);
-} catch(e) {
-  console.log("[TotalWidget] could not attach to window.top:", e.message);
-}
-
-/* ── JotForm integration ── */
 function getSubmissionId(data) {
   let sid = null;
   if (data) {
@@ -166,7 +142,14 @@ function getSubmissionId(data) {
   return sid;
 }
 
+/* ── Init ── */
 document.addEventListener("DOMContentLoaded", async () => {
+  window._sessionId = getSessionId();
+  console.log("[TotalWidget] session:", window._sessionId);
+
+  // Start polling every 2 seconds
+  window._pollInterval = setInterval(pollTotal, 2000);
+
   const waitForJotform = () => new Promise(resolve => {
     if (typeof JFCustomWidget !== "undefined") { resolve(); return; }
     const interval = setInterval(() => {
@@ -180,6 +163,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (typeof JFCustomWidget === "undefined") return;
 
   JFCustomWidget.subscribe("submit", () => {
+    // Clear session on submit
+    if (window._sessionId && APPS_SCRIPT_URL !== "https://script.google.com/macros/s/AKfycbwJhhGu_5QfQYmOfswMNZPRGxnKD8PgU5DxKAI6DFCKgPUlU4gX7H-FKLOWoV6Ea65B/exec") {
+      fetch(`${APPS_SCRIPT_URL}?action=clear&session=${window._sessionId}`).catch(() => {});
+    }
     JFCustomWidget.sendSubmit({ valid: true, value: window.latestTotal.toFixed(2) });
   });
 
@@ -189,16 +176,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.log("[TotalWidget ready] sid:", sid);
 
     if (sid) {
-      try {
-        const t = await fetchSubmissionTotals(sid);
-        console.log("[TotalWidget] fetched totals:", t);
-        const combined = t.package + t.rental + t.retail;
-        sendTotal(combined);
-      } catch(err) {
-        console.log("[TotalWidget] API fetch failed:", err.message);
-        sendTotal(0);
-      }
+      // Edit mode — fetch from JotForm API
+      await fetchAndSetTotals(sid);
     } else {
+      // New form — start fresh, poll will pick up values as calculators update
       sendTotal(0);
     }
   });
