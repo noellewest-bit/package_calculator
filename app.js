@@ -10,7 +10,7 @@ function getSessionId() {
   // 5-second bucket: all iframes from same page load share this ID
   // Users loading 5+ seconds apart get different IDs
   if (!window._calcSessionId) {
-    window._calcSessionId = "load_" + Math.floor(Date.now() / 5000);
+    window._calcSessionId = "load_" + Math.floor(Date.now() / 60000);
   }
   return window._calcSessionId;
 }
@@ -650,12 +650,8 @@ function broadcastToJotform() {
   // Ping Apps Script with grand total
   try {
     const sid = getSessionId();
-    console.log("[AppScript] pinging with session:", sid, "total:", totalNum.toFixed(2));
-    fetch(`${APPS_SCRIPT_URL}?action=set&load_id=${sid}&source=package&total=${totalNum.toFixed(2)}`)
-      .then(r => r.json())
-      .then(d => console.log("[AppScript] response:", JSON.stringify(d)))
-      .catch(e => console.log("[AppScript] fetch error:", e.message));
-  } catch(e) { console.log("[AppScript] error:", e.message); }
+    fetch(`${APPS_SCRIPT_URL}?action=set&type=package&load_id=${sid}&total=${totalNum.toFixed(2)}`).catch(() => {});
+  } catch(e) {}
 
   // 1. Send full summary as widget value (so JotForm condition copies it to field 110)
   if (typeof JFCustomWidget !== "undefined") {
