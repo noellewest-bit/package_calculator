@@ -31,17 +31,9 @@ window._pollInterval  = null;
 
 /* ── Generate or retrieve session ID ── */
 function getSessionId() {
-  // Use localStorage so the same browser tab keeps the same session
-  try {
-    let sid = sessionStorage.getItem("calc_session");
-    if (!sid) {
-      sid = "s_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
-      sessionStorage.setItem("calc_session", sid);
-    }
-    return sid;
-  } catch(e) {
-    return "s_" + Date.now();
-  }
+  // Use a fixed session key based on the form ID so all iframes share the same session
+  // The form ID is embedded in the JotForm page URL
+  return "form_242352946598066";
 }
 
 /* ── Send total to JotForm ── */
@@ -58,18 +50,17 @@ function sendTotal(total) {
 
 /* ── Poll Apps Script for combined total ── */
 async function pollTotal() {
-  if (!window._sessionId || !APPS_SCRIPT_URL || APPS_SCRIPT_URL === "https://script.google.com/macros/s/AKfycbwJhhGu_5QfQYmOfswMNZPRGxnKD8PgU5DxKAI6DFCKgPUlU4gX7H-FKLOWoV6Ea65B/exec") return;
+  if (!window._sessionId) return;
   try {
     const url = `${APPS_SCRIPT_URL}?action=get&session=${window._sessionId}&nocache=${Date.now()}`;
     const res  = await fetch(url);
     const data = await res.json();
+    console.log("[TotalWidget] poll result:", JSON.stringify(data));
     if (data.combined !== undefined) {
       const combined = parseFloat(data.combined) || 0;
-      if (combined !== window.latestTotal) {
-        sendTotal(combined);
-      }
+      sendTotal(combined);
     }
-  } catch(e) {}
+  } catch(e) { console.log("[TotalWidget] poll error:", e.message); }
 }
 
 /* ── Fetch from JotForm API on edit ── */
@@ -110,7 +101,7 @@ async function fetchAndSetTotals(sid) {
     console.log("[TotalWidget] from API — pkg:", pkg, "rental:", rental, "retail:", retail);
 
     // Push these into the Apps Script so the poll loop picks them up too
-    if (window._sessionId && APPS_SCRIPT_URL !== "https://script.google.com/macros/s/AKfycbwJhhGu_5QfQYmOfswMNZPRGxnKD8PgU5DxKAI6DFCKgPUlU4gX7H-FKLOWoV6Ea65B/exec") {
+    if (window._sessionId) {
       await fetch(`${APPS_SCRIPT_URL}?action=set&session=${window._sessionId}&source=package&total=${pkg}`);
       await fetch(`${APPS_SCRIPT_URL}?action=set&session=${window._sessionId}&source=rental&total=${rental}`);
       await fetch(`${APPS_SCRIPT_URL}?action=set&session=${window._sessionId}&source=retail&total=${retail}`);
@@ -167,7 +158,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   JFCustomWidget.subscribe("submit", () => {
     // Clear session on submit
-    if (window._sessionId && APPS_SCRIPT_URL !== "https://script.google.com/macros/s/AKfycbwJhhGu_5QfQYmOfswMNZPRGxnKD8PgU5DxKAI6DFCKgPUlU4gX7H-FKLOWoV6Ea65B/exec") {
+    if (window._sessionId) {
       fetch(`${APPS_SCRIPT_URL}?action=clear&session=${window._sessionId}`).catch(() => {});
     }
     JFCustomWidget.sendSubmit({ valid: true, value: window.latestTotal.toFixed(2) });
