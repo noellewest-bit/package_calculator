@@ -644,23 +644,31 @@ function broadcastToJotform() {
   // 2. Direct DOM injection into parent JotForm fields
   try {
     if (window.parent && window.parent !== window) {
-      // Full summary → input_110
       const summary = window.parent.document.getElementById("input_110");
       if (summary) {
         summary.value = value;
         summary.dispatchEvent(new Event("input",  { bubbles: true }));
         summary.dispatchEvent(new Event("change", { bubbles: true }));
       }
-      // Grand total number → input_141
+    }
+  } catch(e) {}
+
+  try {
+    if (window.parent && window.parent !== window) {
       const totalField = window.parent.document.getElementById("input_141");
-      console.log("[DOM] input_141 found:", !!totalField, "| value to write:", totalNum.toFixed(2));
+      console.log("[DOM] input_141 found:", !!totalField, "| value:", totalNum.toFixed(2));
       if (totalField) {
         totalField.value = totalNum.toFixed(2);
         totalField.dispatchEvent(new Event("input",  { bubbles: true }));
         totalField.dispatchEvent(new Event("change", { bubbles: true }));
         totalField.dispatchEvent(new Event("keyup",  { bubbles: true }));
-        console.log("[DOM] input_141 value after write:", totalField.value);
+        console.log("[DOM] input_141 after write:", totalField.value);
       }
+    }
+  } catch(e) { console.log("[DOM] input_141 error:", e.message); }
+
+  try {
+    if (window.parent && window.parent !== window) {
       window.parent.postMessage(JSON.stringify({ type: "widgetValue", value, valid: true }), "*");
     }
   } catch(e) {}
