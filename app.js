@@ -7,14 +7,7 @@ const SHEET_ID = "1-QD9UJ99Rjl1JPlBdKPo7hz5MBOiJKkMyD-qWlD520s";
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJhhGu_5QfQYmOfswMNZPRGxnKD8PgU5DxKAI6DFCKgPUlU4gX7H-FKLOWoV6Ea65B/exec";
 
 function getSessionId() {
-  try {
-    let sid = sessionStorage.getItem("calc_session");
-    if (!sid) {
-      sid = "s_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
-      sessionStorage.setItem("calc_session", sid);
-    }
-    return sid;
-  } catch(e) { return "s_" + Date.now(); }
+  return "form_242352946598066";
 }
 
 const ALL_SHEETS = [
