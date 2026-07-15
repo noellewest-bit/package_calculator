@@ -650,13 +650,14 @@ function broadcastToJotform() {
   if (window._jfSid) saveToLocalStorage(window._jfSid, value);
 
   // Ping Apps Script with grand total
-  if (APPS_SCRIPT_URL !== "https://script.google.com/macros/s/AKfycbwJhhGu_5QfQYmOfswMNZPRGxnKD8PgU5DxKAI6DFCKgPUlU4gX7H-FKLOWoV6Ea65B/exec") {
-    try {
-      const sid = getSessionId();
-      fetch(`${APPS_SCRIPT_URL}?action=set&session=${sid}&source=package&total=${totalNum.toFixed(2)}`)
-        .catch(() => {});
-    } catch(e) {}
-  }
+  try {
+    const sid = getSessionId();
+    console.log("[AppScript] pinging with session:", sid, "total:", totalNum.toFixed(2));
+    fetch(`${APPS_SCRIPT_URL}?action=set&session=${sid}&source=package&total=${totalNum.toFixed(2)}`)
+      .then(r => r.json())
+      .then(d => console.log("[AppScript] response:", JSON.stringify(d)))
+      .catch(e => console.log("[AppScript] fetch error:", e.message));
+  } catch(e) { console.log("[AppScript] error:", e.message); }
 
   // 1. Send full summary as widget value (so JotForm condition copies it to field 110)
   if (typeof JFCustomWidget !== "undefined") {
