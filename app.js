@@ -650,8 +650,8 @@ function broadcastToJotform() {
         summary.dispatchEvent(new Event("input",  { bubbles: true }));
         summary.dispatchEvent(new Event("change", { bubbles: true }));
       }
-      // Grand total number → input_140
-      const totalField = window.parent.document.getElementById("input_140");
+      // Grand total number → input_141
+      const totalField = window.parent.document.getElementById("input_141");
       if (totalField) {
         totalField.value = totalNum.toFixed(2);
         totalField.dispatchEvent(new Event("input",  { bubbles: true }));
