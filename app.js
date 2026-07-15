@@ -656,20 +656,18 @@ function broadcastToJotform() {
   try {
     if (window.parent && window.parent !== window) {
       const totalField = window.parent.document.getElementById("input_141");
-      console.log("[DOM] input_141 found:", !!totalField, "| value:", totalNum.toFixed(2));
       if (totalField) {
         totalField.value = totalNum.toFixed(2);
         totalField.dispatchEvent(new Event("input",  { bubbles: true }));
         totalField.dispatchEvent(new Event("change", { bubbles: true }));
         totalField.dispatchEvent(new Event("keyup",  { bubbles: true }));
-        console.log("[DOM] input_141 after write:", totalField.value);
       }
     }
-  } catch(e) { console.log("[DOM] input_141 error:", e.message); }
+  } catch(e) {}
 
   try {
     if (window.parent && window.parent !== window) {
-      window.parent.postMessage(JSON.stringify({ type: "widgetValue", value, valid: true }), "*");
+      window.parent.postMessage(JSON.stringify({ type: "widgetValue", value, valid: true, grandTotal: totalNum.toFixed(2), source: "package_calculator" }), "*");
     }
   } catch(e) {}
 }
