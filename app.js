@@ -629,36 +629,36 @@ function calc() {
 ══════════════════════════════════════════════ */
 function broadcastToJotform() {
   const value = window.latestSubmissionText || "";
+  const totalText = document.getElementById("grandTotal")?.textContent || "0.00";
+  const totalNum = parseFloat(totalText.replace(/,/g, "")) || 0;
 
   // Save to localStorage keyed by submission ID
   if (window._jfSid) saveToLocalStorage(window._jfSid, value);
 
-  // 1. Standard widget API
+  // 1. Send grand total as widget numeric value (so JotForm Calculate Field can use it)
   if (typeof JFCustomWidget !== "undefined") {
-    try { JFCustomWidget.sendData({ value }); } catch(e) {}
+    try { JFCustomWidget.sendData({ value: totalNum.toFixed(2) }); } catch(e) {}
   }
 
-  // 2. Direct DOM injection into parent JotForm fields
+  // 2. Direct DOM injection — summary to input_110, total to input_110 handled by condition
   try {
     if (window.parent && window.parent !== window) {
-      const t = window.parent.document.getElementById("input_110");
-      if (t) {
-        t.value = value;
-        t.dispatchEvent(new Event("input",  { bubbles: true }));
-        t.dispatchEvent(new Event("change", { bubbles: true }));
+      // Write full summary to input_110
+      const summary = window.parent.document.getElementById("input_110");
+      if (summary) {
+        summary.value = value;
+        summary.dispatchEvent(new Event("input",  { bubbles: true }));
+        summary.dispatchEvent(new Event("change", { bubbles: true }));
       }
-      const grandTotalEl = window.parent.document.getElementById("input_140");
-      if (grandTotalEl) {
-        const totalText = document.getElementById("grandTotal")?.textContent || "0.00";
-        const totalNum = parseFloat(totalText.replace(/,/g, "")) || 0;
-        grandTotalEl.focus();
-        grandTotalEl.value = totalNum.toFixed(2);
-        grandTotalEl.dispatchEvent(new Event("input",  { bubbles: true }));
-        grandTotalEl.dispatchEvent(new Event("change", { bubbles: true }));
-        grandTotalEl.dispatchEvent(new Event("keyup",  { bubbles: true }));
-        grandTotalEl.blur();
+      // Write numeric total to input_139 (the widget field itself) so Calculate Field picks it up
+      const widgetField = window.parent.document.getElementById("input_139");
+      if (widgetField) {
+        widgetField.value = totalNum.toFixed(2);
+        widgetField.dispatchEvent(new Event("input",  { bubbles: true }));
+        widgetField.dispatchEvent(new Event("change", { bubbles: true }));
+        widgetField.dispatchEvent(new Event("keyup",  { bubbles: true }));
       }
-      window.parent.postMessage(JSON.stringify({ type: "widgetValue", value, valid: true }), "*");
+      window.parent.postMessage(JSON.stringify({ type: "widgetValue", value: totalNum.toFixed(2), valid: true }), "*");
     }
   } catch(e) {}
 }
@@ -693,7 +693,9 @@ function setupJotform() {
   if (typeof JFCustomWidget === "undefined") return;
 
   JFCustomWidget.subscribe("submit", () => {
-    JFCustomWidget.sendSubmit({ valid: true, value: window.latestSubmissionText || "" });
+    const totalText = document.getElementById("grandTotal")?.textContent || "0.00";
+    const totalNum = parseFloat(totalText.replace(/,/g, "")) || 0;
+    JFCustomWidget.sendSubmit({ valid: true, value: totalNum.toFixed(2) });
   });
 
   JFCustomWidget.subscribe("ready", function(data) {
