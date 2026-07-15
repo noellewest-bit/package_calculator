@@ -667,7 +667,7 @@ function broadcastToJotform() {
 
   try {
     if (window.parent && window.parent !== window) {
-      window.parent.postMessage(JSON.stringify({ type: "widgetValue", value, valid: true, grandTotal: totalNum.toFixed(2), source: "package_calculator" }), "*");
+      window.top.postMessage(JSON.stringify({ type: "widgetValue", valid: true, grandTotal: totalNum.toFixed(2), source: "package_calculator" }), "*");
     }
   } catch(e) {}
 }
