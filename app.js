@@ -1512,6 +1512,11 @@ function setupJotform() {
   JFCustomWidget.subscribe("ready", async function(data) {
     console.log("[ready] fired, sid:", data?.sid, "value length:", data?.value?.length || 0);
 
+    // Immediately clear the widget value until Amount Paid is filled
+    if (typeof JFCustomWidget !== "undefined") {
+      try { JFCustomWidget.sendData({ value: "" }); } catch(e) {}
+    }
+
     // Extract submission ID
     let sid = data?.sid || data?.submissionID || data?.submissionId || null;
     if (sid) sid = String(sid);
