@@ -1513,22 +1513,29 @@ function setupJotform() {
         const json = await res.json();
         const answers = json?.content?.answers || {};
         console.log("[restore] API response code:", json?.responseCode);
-        console.log("[restore] field 110:", answers["110"]?.answer?.substring(0, 80));
-        console.log("[restore] field 136:", answers["136"]?.answer?.substring(0, 80));
-        console.log("[restore] field 134:", answers["134"]?.answer?.substring(0, 80));
+        console.log("[restore] all answer keys:", Object.keys(answers));
+        console.log("[restore] field 110:", answers["110"]?.answer?.toString().substring(0, 80));
+        console.log("[restore] field 136:", answers["136"]?.answer?.toString().substring(0, 80));
+        console.log("[restore] field 134:", answers["134"]?.answer?.toString().substring(0, 80));
 
         // Combined new field
         const combinedAns = Object.values(answers).find(ans => {
-          const val = ans?.answer || "";
+          const val = typeof ans?.answer === "string" ? ans.answer : "";
           return val && (val.includes("WEDDING ENTOURAGE PACKAGE") || val.includes("RENTAL ITEMS") || val.includes("PURCHASED ITEMS")) && val.includes("GRAND TOTAL:");
         });
         if (combinedAns?.answer) {
           console.log("[restore] found combined format");
           saved = combinedAns.answer;
         } else {
-          const pkgText    = answers["110"]?.answer  || "";
-          const rentalText = answers["136"]?.answer || "";
-          const retailText = answers["134"]?.answer || "";
+          // Log all answers to find which key has the package summary
+          Object.entries(answers).forEach(([key, ans]) => {
+            const val = typeof ans?.answer === "string" ? ans.answer : "";
+            if (val && val.includes("PACKAGE:")) console.log("[restore] package summary found in field:", key, val.substring(0, 60));
+          });
+
+          const pkgText    = typeof answers["110"]?.answer === "string" ? answers["110"].answer : "";
+          const rentalText = typeof answers["136"]?.answer === "string" ? answers["136"].answer : "";
+          const retailText = typeof answers["134"]?.answer === "string" ? answers["134"].answer : "";
           console.log("[restore] pkgText length:", pkgText.length, "rentalText:", rentalText.length, "retailText:", retailText.length);
 
           if (pkgText || rentalText || retailText) {
