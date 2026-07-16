@@ -1173,88 +1173,100 @@ async function restoreFromLegacy(parts) {
 }
 
 async function restorePackageLegacy(text) {
-  // Old package format:
-  // PACKAGE: PACKAGE 1C (SPANDEX)
-  // PACKAGE COLOR: DUSTY ROSE
-  // Bridesmaid x 1 @ ₱280.50 = ₱280.50
-  // Mother's Gown | #1: BGI/BGI001 x 1 @ ₱252.45 = ₱252.45
-  // PACKAGE SUBTOTAL: ₱...  ADD-ON SUBTOTAL: ₱...  GRAND TOTAL: ₱...
-  const lines = text.replace(/\r\n/g, "\n").split("\n").map(l => l.trim()).filter(Boolean);
+  if (!text || !text.trim()) return;
+  if (!dataReady) {
+    await new Promise(resolve => {
+      const check = setInterval(() => { if (dataReady) { clearInterval(check); resolve(); } }, 100);
+    });
+  }
 
-  for (const line of lines) {
-    // Package type
-    const pkgMatch = line.match(/^PACKAGE:\s*(.+)$/);
-    if (pkgMatch) {
-      const pkgSel = document.getElementById("packageType");
-      for (const [val, name] of Object.entries(packageNames)) {
-        if (name === pkgMatch[1].trim()) { pkgSel.value = val; break; }
-      }
-      renderPackage(); continue;
+  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+
+  // Package type
+  const pkgLine = lines.find(l => l.startsWith("PACKAGE:"));
+  if (pkgLine) {
+    const pkgName = pkgLine.replace("PACKAGE:", "").trim();
+    const pkgSel  = document.getElementById("packageType");
+    for (const [val, name] of Object.entries(packageNames)) {
+      if (name === pkgName) { pkgSel.value = val; break; }
     }
-    // Color
-    const colorMatch = line.match(/^PACKAGE COLOR:\s*(.+)$/);
-    if (colorMatch) { document.getElementById("packageColor").value = colorMatch[1].trim(); continue; }
+    renderPackage();
+  }
 
-    // Package item with gown codes: "Mother's Gown | #1: BGI/BGI001 x 1 @ ₱252.45 = ₱252.45"
-    const gownMatch = line.match(/^(.+?)\s*\|\s*(#\d+:.+?)\s+x\s+(\d+)\s+@/);
-    if (gownMatch) {
-      const name = gownMatch[1].trim();
-      const qty  = parseInt(gownMatch[3]);
-      const pkg  = document.getElementById("packageType").value;
-      for (const k of pkgKeys) {
-        if (packagePrices[pkg][k][0] === name) {
-          const inp = document.querySelector(`.package-qty[data-k="${k}"]`);
-          if (inp) { inp.value = qty; inp.dispatchEvent(new Event("input")); }
-          // Restore gown codes
-          await new Promise(r => setTimeout(r, 50));
-          const codes = [...gownMatch[2].matchAll(/#(\d+):\s*([^/,]+)\/([^,\s]+)/g)];
-          const containerId = k === "bridal_gown" ? "bgPickers" : "mgPickers";
-          const sets = document.querySelectorAll(`#${containerId} .gown-picker-set`);
-          codes.forEach(m => {
-            const idx = parseInt(m[1]) - 1;
-            const cat = m[2].trim(); const code = m[3].trim();
-            const set = sets[idx]; if (!set) return;
-            const catSel = set.querySelector(".gown-cat-sel");
-            const itemInp = set.querySelector(".gown-item-sel");
-            if (catSel) catSel.value = cat;
-            if (itemInp) itemInp.value = code;
-          });
-          break;
-        }
+  // Package color
+  const colorLine = lines.find(l => l.startsWith("PACKAGE COLOR:"));
+  if (colorLine) document.getElementById("packageColor").value = colorLine.replace("PACKAGE COLOR:", "").trim();
+
+  // Build name to key map
+  const pkg = document.getElementById("packageType").value;
+  const nameToKey = {};
+  for (const [k, [name]] of Object.entries(packagePrices[pkg])) nameToKey[name] = k;
+
+  // Package item lines
+  const addonStartIdx = lines.findIndex(l => l === "ADD-ONS:");
+  const pkgItemLines = lines.filter((l, i) => {
+    if (l.startsWith("PACKAGE:") || l.startsWith("PACKAGE COLOR:") ||
+        l.startsWith("PACKAGE SUBTOTAL:") || l.startsWith("ADD-ON SUBTOTAL:") ||
+        l.startsWith("GRAND TOTAL:") || l === "ADD-ONS:") return false;
+    if (addonStartIdx >= 0 && i > addonStartIdx) return false;
+    return l.includes(" x ") && l.includes("@");
+  });
+
+  for (const line of pkgItemLines) {
+    const qtyMatch = line.match(/ x (\d+) @/);
+    if (!qtyMatch) continue;
+    const qty      = parseInt(qtyMatch[1]);
+    const itemName = line.split(/\s*\|\s*|\s+x\s+\d+\s+@/)[0].trim();
+    const k        = nameToKey[itemName];
+    if (!k) continue;
+
+    const qtyInput = document.querySelector(`.package-qty[data-k="${k}"]`);
+    if (qtyInput) { qtyInput.value = qty; qtyInput.dispatchEvent(new Event("input")); }
+
+    if (k === "bridal_gown" || k === "mother") {
+      const containerId  = k === "bridal_gown" ? "bgPickers" : "mgPickers";
+      const allowedCats  = k === "bridal_gown" ? BG_CATS : MG_CATS;
+      const labelPrefix  = k === "bridal_gown" ? "Bridal Gown" : "Mother's Gown";
+      const codeMatches  = [...line.matchAll(/#\d+:\s*([^/,]+)\/([^,\s]+)/g)];
+      if (codeMatches.length > 0) {
+        buildGownPickers(containerId, codeMatches.length, allowedCats, labelPrefix);
+        await new Promise(r => setTimeout(r, 50));
+        const sets = document.querySelectorAll(`#${containerId} .gown-picker-set`);
+        codeMatches.forEach((m, i) => {
+          const cat = m[1].trim(); const code = m[2].trim();
+          const set = sets[i]; if (!set) return;
+          const catSel  = set.querySelector(".gown-cat-sel");
+          const itemInp = set.querySelector(".gown-item-sel");
+          if (catSel) catSel.value = cat;
+          if (itemInp) itemInp.value = code;
+        });
       }
-      continue;
     }
+  }
 
-    // Regular package item: "Bridesmaid x 1 @ ₱280.50 = ₱280.50"
-    const itemMatch = line.match(/^(.+?)\s+x\s+(\d+)\s+@\s+₱/);
-    if (itemMatch && !line.includes("|")) {
-      const name = itemMatch[1].trim();
-      const qty  = parseInt(itemMatch[2]);
-      const pkg  = document.getElementById("packageType").value;
-      for (const k of pkgKeys) {
-        if (packagePrices[pkg][k][0] === name) {
-          const inp = document.querySelector(`.package-qty[data-k="${k}"]`);
-          if (inp) { inp.value = qty; inp.dispatchEvent(new Event("input")); }
-          break;
-        }
-      }
-    }
-
-    // Old add-on format: "CAT/CODE x 1 | Regular: ₱1,200.00 | Less 20%: ₱960.00 | Subtotal: ₱960.00"
-    const addonMatch = line.match(/^([^/]+)\/(\S+)\s+x\s+(\d+)\s+\|\s*Regular:\s*₱([\d,]+\.?\d*)/);
-    if (addonMatch) {
+  // Add-on lines
+  if (addonStartIdx >= 0) {
+    const addonLines = lines.filter((l, i) => {
+      if (i <= addonStartIdx) return false;
+      if (l.startsWith("PACKAGE SUBTOTAL:") || l.startsWith("ADD-ON SUBTOTAL:") || l.startsWith("GRAND TOTAL:")) return false;
+      return l.includes(" x ") && l.includes("Regular:");
+    });
+    for (const line of addonLines) {
+      const m = line.match(/^([^/]+)\/([^\s]+)\s+x\s+(\d+)\s+\|\s*Regular:\s*₱([\d,]+\.?\d*)/);
+      if (!m) continue;
+      const cat = m[1].trim(); const code = m[2].trim();
+      const qty = parseInt(m[3]);
       addAddonRow();
-      const rows = document.querySelectorAll(".addon-row");
-      const aRow = rows[rows.length - 1];
-      const cat  = addonMatch[1].trim();
-      const code = addonMatch[2].trim();
-      const qty  = parseInt(addonMatch[3]);
-      const catSel = aRow.querySelector(".addon-cat");
+      const addonRows = document.querySelectorAll(".addon-row");
+      const row = addonRows[addonRows.length - 1];
+      const catSel = row.querySelector(".addon-cat");
       if (catSel) { catSel.value = cat; catSel.dispatchEvent(new Event("change")); }
       await new Promise(r => setTimeout(r, 0));
-      const inp = aRow.querySelector(".addon-item-input");
-      if (inp) { inp.value = code; inp.dispatchEvent(new Event("input")); }
-      if (aRow._qtyInput) aRow._qtyInput.value = qty;
+      const inp = row.querySelector(".addon-item-input");
+      if (inp) inp.value = code;
+      const found = (sheetData[cat] || []).find(i => i.code === code);
+      if (found) { row._foundItem = found; if (row._updatePriceType) row._updatePriceType(); }
+      if (row._qtyInput) row._qtyInput.value = qty;
     }
   }
 }
