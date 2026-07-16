@@ -139,14 +139,14 @@ function parseCSV(text) {
    DATA LOADING
 ══════════════════════════════════════════════ */
 async function fetchSheetCSV(sheetName) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-  const res = await fetch(url);
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&nocache=${Date.now()}`;
+  const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`Sheet "${sheetName}" failed: ${res.status}`);
   return parseCSV(await res.text());
 }
 
 async function fetchSheetByGid(gid) {
-  const res = await fetch(CSV_BASE + gid);
+  const res = await fetch(CSV_BASE + gid + `&nocache=${Date.now()}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`GID ${gid} failed`);
   return parseCSV(await res.text());
 }
