@@ -176,19 +176,13 @@ async function fetchSheetByGid(gid, retries = 3) {
 }
 
 async function loadAllData() {
-  // Fetch sheets sequentially to avoid 429 rate limiting
-  async function fetchSequentially(items, fetchFn, delayMs = 500) {
-    for (const item of items) {
-      await fetchFn(item);
-      await new Promise(r => setTimeout(r, delayMs));
-    }
-  }
+  const DELAY_MS = 600;
 
-  // Load package + rental sheets
-  await fetchSequentially(PKG_SHEETS, async (name) => {
+  // ── Load all PKG/RENTAL sheets sequentially ──
+  for (const name of PKG_SHEETS) {
     try {
       const rows = await fetchSheetCSV(name);
-      if (!rows.length) return;
+      if (!rows.length) { await new Promise(r => setTimeout(r, DELAY_MS)); continue; }
       const headers = rows[0].map(h => h.toUpperCase().trim());
       let rentalCol = -1, retailCol = -1, fuCol = -1;
       headers.forEach((h, i) => {
@@ -214,15 +208,13 @@ async function loadAllData() {
       }
       sheetData[name] = items;
 
-      // Build rental master list from rental sheets
       const isQty = RENTAL_QTY_CATS.includes(name);
       const isTrk = RENTAL_TRACKED_CATS.includes(name);
       if (isQty || isTrk) {
         for (const item of items) {
           const effectiveRental = (isQty && item.rentalRate == null) ? 0 : item.rentalRate;
           rentalMaster.push({
-            category: name,
-            name: item.code,
+            category: name, name: item.code,
             rentalRate: effectiveRental,
             firstUserPrice: item.firstUserPrice,
             type: isQty ? "QUANTITY" : "TRACKED"
@@ -233,16 +225,17 @@ async function loadAllData() {
       sheetData[name] = [];
       console.warn("Sheet failed:", name, e.message);
     }
-  });
+    await new Promise(r => setTimeout(r, DELAY_MS));
+  }
 
-  // Load retail sheets in batches
-  await fetchSequentially(RETAIL_SHEETS, async ({ label, gid }) => {
+  // ── Load RETAIL sheets sequentially ──
+  for (const { label, gid } of RETAIL_SHEETS) {
     try {
       const rows = await fetchSheetByGid(gid);
-      if (rows.length < 2) return;
+      if (rows.length < 2) { await new Promise(r => setTimeout(r, DELAY_MS)); continue; }
       const headers = rows[0].map(h => h.trim().toLowerCase());
       const priceCol = headers.findIndex(h => h.includes("retail"));
-      if (priceCol === -1) return;
+      if (priceCol === -1) { await new Promise(r => setTimeout(r, DELAY_MS)); continue; }
       for (let r = 1; r < rows.length; r++) {
         const row  = rows[r];
         const name = (row[0] || "").trim();
@@ -252,7 +245,8 @@ async function loadAllData() {
         retailItems.push({ category: label, name, retailPrice: price });
       }
     } catch(e) { console.warn("Retail sheet failed:", label, e.message); }
-  });
+    await new Promise(r => setTimeout(r, DELAY_MS));
+  }
 
   // Populate package color dropdown
   const colors = sheetData["PACKAGE COLORS"] || [];
