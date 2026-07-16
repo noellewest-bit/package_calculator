@@ -241,7 +241,7 @@ async function loadAllData() {
   buildRentalQtyPanel();
   buildRetailPanel();
 
-  // Restore if we captured data from ready event
+  // Restore if we captured data from ready event (only on first load)
   if (window._savedRestoreText) {
     await restoreFromSummary(window._savedRestoreText);
     window._savedRestoreText = null;
@@ -1344,6 +1344,33 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("amountPaid").addEventListener("input", updateGrandTotal);
   document.getElementById("discountAmount").addEventListener("input", updateGrandTotal);
+
+  document.getElementById("refreshBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("refreshBtn");
+    btn.classList.add("spinning");
+    btn.textContent = "↻ Refreshing…";
+
+    // Reset data
+    Object.keys(sheetData).forEach(k => delete sheetData[k]);
+    rentalMaster.length = 0;
+    retailItems.length  = 0;
+
+    // Repopulate color dropdown
+    const colorSel = document.getElementById("packageColor");
+    const currentColor = colorSel.value;
+    while (colorSel.options.length > 1) colorSel.remove(1);
+
+    // Show loading overlay briefly
+    document.getElementById("loadingOverlay").style.display = "flex";
+
+    await loadAllData();
+
+    // Restore color selection if it still exists
+    if (currentColor) colorSel.value = currentColor;
+
+    btn.classList.remove("spinning");
+    btn.textContent = "↻ Refresh";
+  });
 
   await loadAllData();
 });
