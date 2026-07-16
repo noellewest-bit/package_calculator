@@ -245,6 +245,9 @@ async function loadAllData() {
   if (window._savedRestoreText) {
     await restoreFromSummary(window._savedRestoreText);
     window._savedRestoreText = null;
+  } else if (window._savedLegacyRestore) {
+    await restoreFromLegacy(window._savedLegacyRestore);
+    window._savedLegacyRestore = null;
   }
 
   updateGrandTotal();
@@ -1121,7 +1124,161 @@ function loadFromLocalStorage(sid) {
 }
 
 /* ══════════════════════════════════════════════
-   RESTORE FROM SUMMARY
+   RESTORE FROM LEGACY SEPARATE SUMMARIES
+══════════════════════════════════════════════ */
+async function restoreFromLegacy(parts) {
+  for (const part of parts) {
+    if (part.type === "package") await restorePackageLegacy(part.text);
+    if (part.type === "rental")  restoreRentalLegacy(part.text);
+    if (part.type === "retail")  restoreRetailLegacy(part.text);
+  }
+  renderRentalItems();
+  renderRetailItems();
+  updateGrandTotal();
+}
+
+function restorePackageLegacy(text) {
+  // Old package format:
+  // PACKAGE: PACKAGE 1C (SPANDEX)
+  // PACKAGE COLOR: DUSTY ROSE
+  // Bridesmaid x 1 @ ₱280.50 = ₱280.50
+  // Mother's Gown | #1: BGI/BGI001 x 1 @ ₱252.45 = ₱252.45
+  // PACKAGE SUBTOTAL: ₱...  ADD-ON SUBTOTAL: ₱...  GRAND TOTAL: ₱...
+  const lines = text.replace(/\r\n/g, "\n").split("\n").map(l => l.trim()).filter(Boolean);
+
+  for (const line of lines) {
+    // Package type
+    const pkgMatch = line.match(/^PACKAGE:\s*(.+)$/);
+    if (pkgMatch) {
+      const pkgSel = document.getElementById("packageType");
+      for (const [val, name] of Object.entries(packageNames)) {
+        if (name === pkgMatch[1].trim()) { pkgSel.value = val; break; }
+      }
+      renderPackage(); continue;
+    }
+    // Color
+    const colorMatch = line.match(/^PACKAGE COLOR:\s*(.+)$/);
+    if (colorMatch) { document.getElementById("packageColor").value = colorMatch[1].trim(); continue; }
+
+    // Package item with gown codes: "Mother's Gown | #1: BGI/BGI001 x 1 @ ₱252.45 = ₱252.45"
+    const gownMatch = line.match(/^(.+?)\s*\|\s*(#\d+:.+?)\s+x\s+(\d+)\s+@/);
+    if (gownMatch) {
+      const name = gownMatch[1].trim();
+      const qty  = parseInt(gownMatch[3]);
+      const pkg  = document.getElementById("packageType").value;
+      for (const k of pkgKeys) {
+        if (packagePrices[pkg][k][0] === name) {
+          const inp = document.querySelector(`.package-qty[data-k="${k}"]`);
+          if (inp) { inp.value = qty; inp.dispatchEvent(new Event("input")); }
+          // Restore gown codes
+          await new Promise(r => setTimeout(r, 50));
+          const codes = [...gownMatch[2].matchAll(/#(\d+):\s*([^/,]+)\/([^,\s]+)/g)];
+          const containerId = k === "bridal_gown" ? "bgPickers" : "mgPickers";
+          const sets = document.querySelectorAll(`#${containerId} .gown-picker-set`);
+          codes.forEach(m => {
+            const idx = parseInt(m[1]) - 1;
+            const cat = m[2].trim(); const code = m[3].trim();
+            const set = sets[idx]; if (!set) return;
+            const catSel = set.querySelector(".gown-cat-sel");
+            const itemInp = set.querySelector(".gown-item-sel");
+            if (catSel) catSel.value = cat;
+            if (itemInp) itemInp.value = code;
+          });
+          break;
+        }
+      }
+      continue;
+    }
+
+    // Regular package item: "Bridesmaid x 1 @ ₱280.50 = ₱280.50"
+    const itemMatch = line.match(/^(.+?)\s+x\s+(\d+)\s+@\s+₱/);
+    if (itemMatch && !line.includes("|")) {
+      const name = itemMatch[1].trim();
+      const qty  = parseInt(itemMatch[2]);
+      const pkg  = document.getElementById("packageType").value;
+      for (const k of pkgKeys) {
+        if (packagePrices[pkg][k][0] === name) {
+          const inp = document.querySelector(`.package-qty[data-k="${k}"]`);
+          if (inp) { inp.value = qty; inp.dispatchEvent(new Event("input")); }
+          break;
+        }
+      }
+    }
+
+    // Old add-on format: "CAT/CODE x 1 | Regular: ₱1,200.00 | Less 20%: ₱960.00 | Subtotal: ₱960.00"
+    const addonMatch = line.match(/^([^/]+)\/(\S+)\s+x\s+(\d+)\s+\|\s*Regular:\s*₱([\d,]+\.?\d*)/);
+    if (addonMatch) {
+      addAddonRow();
+      const rows = document.querySelectorAll(".addon-row");
+      const aRow = rows[rows.length - 1];
+      const cat  = addonMatch[1].trim();
+      const code = addonMatch[2].trim();
+      const qty  = parseInt(addonMatch[3]);
+      const catSel = aRow.querySelector(".addon-cat");
+      if (catSel) { catSel.value = cat; catSel.dispatchEvent(new Event("change")); }
+      await new Promise(r => setTimeout(r, 0));
+      const inp = aRow.querySelector(".addon-item-input");
+      if (inp) { inp.value = code; inp.dispatchEvent(new Event("input")); }
+      if (aRow._qtyInput) aRow._qtyInput.value = qty;
+    }
+  }
+}
+
+function restoreRentalLegacy(text) {
+  // Old rental format:
+  // NAME | Rental Rate @ ₱3,500.00 = ₱3,500.00  (tracked)
+  // NAME x 2 @ ₱350.00 = ₱700.00               (quantity)
+  // NAME | First User @ ₱200.00 = ₱200.00       (first user)
+  const lines = text.replace(/\r\n/g, "\n").split("\n").map(l => l.trim()).filter(Boolean);
+  for (const line of lines) {
+    if (line.startsWith("RENTAL TOTAL:")) continue;
+
+    // Tracked: "NAME | Rental Rate @ ₱X = ₱Y" or "NAME | First User @ ₱X = ₱Y"
+    const trackedMatch = line.match(/^(.+?)\s*\|\s*(Rental Rate|First User)\s*@\s*₱([\d,]+\.?\d*)/);
+    if (trackedMatch) {
+      const name  = trackedMatch[1].trim();
+      const label = trackedMatch[2].trim();
+      const rate  = parseFloat(trackedMatch[3].replace(/,/g, ""));
+      const master = rentalMaster.find(i => i.type === "TRACKED" && i.name === name);
+      if (master && !rentalCart.find(i => i.name === name && i.type === "TRACKED")) {
+        rentalCart.push({ id: uid(), category: master.category, name, rentalRate: rate, pricingLabel: label, quantity: 1, amount: rate, type: "TRACKED" });
+      }
+      continue;
+    }
+
+    // Quantity: "NAME x QTY @ ₱X = ₱Y"
+    const qtyMatch = line.match(/^(.+?)\s+x\s+(\d+)\s+@\s+₱([\d,]+\.?\d*)/);
+    if (qtyMatch) {
+      const name = qtyMatch[1].trim();
+      const qty  = parseInt(qtyMatch[2]);
+      const rate = parseFloat(qtyMatch[3].replace(/,/g, ""));
+      const master = rentalMaster.find(i => i.type === "QUANTITY" && i.name === name);
+      if (master) {
+        const existing = rentalCart.find(i => i.type === "QUANTITY" && i.name === name);
+        if (existing) { existing.quantity += qty; existing.amount = existing.rentalRate * existing.quantity; }
+        else rentalCart.push({ id: uid(), category: master.category, name, rentalRate: rate, pricingLabel: "Rental Rate", quantity: qty, amount: rate * qty, type: "QUANTITY" });
+      }
+    }
+  }
+}
+
+function restoreRetailLegacy(text) {
+  // Old retail format: "Product Name: ABHAYA, Amount: 12000"
+  const lines = text.replace(/\r\n/g, "\n").split("\n").map(l => l.trim()).filter(Boolean);
+  for (const line of lines) {
+    const match = line.match(/^Product Name:\s*(.+?),\s*Amount:\s*([\d.]+)$/);
+    if (!match) continue;
+    const name   = match[1].trim();
+    const amount = parseFloat(match[2]);
+    const master = retailItems.find(i => i.name === name);
+    if (master && !retailCart.find(c => c.name === name)) {
+      retailCart.push({ ...master, retailPrice: amount });
+    }
+  }
+}
+
+/* ══════════════════════════════════════════════
+   RESTORE FROM COMBINED SUMMARY
 ══════════════════════════════════════════════ */
 async function restoreFromSummary(text) {
   if (!text || !text.trim()) return;
@@ -1296,7 +1453,7 @@ function setupJotform() {
     if (!sid) { try { const m = window.parent.location.href.match(/\/edit\/(\d+)/); if (m) sid = m[1]; } catch(e) {} }
     if (sid) window._jfSid = sid;
 
-    // Try restore from ready event value
+    // Try restore from ready event value (new combined format)
     let saved = (data?.value && data.value.trim()) ? data.value.trim() : null;
 
     // Try localStorage
@@ -1307,18 +1464,42 @@ function setupJotform() {
       try {
         const res  = await fetch(`https://api.jotform.com/submission/${sid}?apiKey=${API_KEY}&nocache=${Date.now()}`);
         const json = await res.json();
-        // Try to find the combined summary field — look for the field with our summary format
         const answers = json?.content?.answers || {};
-        for (const ans of Object.values(answers)) {
+
+        // Field IDs for combined and legacy summary fields
+        // Combined new field (widget itself)
+        const combinedAns = Object.values(answers).find(ans => {
           const val = ans?.answer || "";
-          if (val && (val.includes("WEDDING ENTOURAGE PACKAGE") || val.includes("RENTAL ITEMS") || val.includes("PURCHASED ITEMS") || val.includes("GRAND TOTAL:"))) {
-            saved = val; break;
+          return val && (val.includes("WEDDING ENTOURAGE PACKAGE") || val.includes("RENTAL ITEMS") || val.includes("PURCHASED ITEMS")) && val.includes("GRAND TOTAL:");
+        });
+        if (combinedAns?.answer) {
+          saved = combinedAns.answer; 
+        } else {
+          // Read the three legacy summary text boxes and merge them
+          const pkgText    = answers["110"]?.answer  || "";
+          const rentalText = answers["136"]?.answer || "";
+          const retailText = answers["134"]?.answer || "";
+
+          if (pkgText || rentalText || retailText) {
+            // Build a combined restore text from the three legacy summaries
+            const parts = [];
+            if (pkgText && pkgText.trim())    parts.push({ type: "package", text: pkgText.trim() });
+            if (rentalText && rentalText.trim()) parts.push({ type: "rental",  text: rentalText.trim() });
+            if (retailText && retailText.trim()) parts.push({ type: "retail",  text: retailText.trim() });
+            if (parts.length) {
+              // Store parts separately for restore
+              window._legacyRestore = parts;
+              saved = "__legacy__";
+            }
           }
         }
-      } catch(e) {}
+      } catch(e) { console.log("[restore] API fetch failed:", e.message); }
     }
 
-    if (saved) {
+    if (saved === "__legacy__") {
+      if (dataReady) { await restoreFromLegacy(window._legacyRestore); }
+      else { window._savedLegacyRestore = window._legacyRestore; }
+    } else if (saved) {
       if (dataReady) { await restoreFromSummary(saved); }
       else { window._savedRestoreText = saved; }
     } else {
