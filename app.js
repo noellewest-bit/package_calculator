@@ -1508,6 +1508,8 @@ function setupJotform() {
   });
 
   JFCustomWidget.subscribe("ready", async function(data) {
+    console.log("[ready] fired, sid:", data?.sid, "value length:", data?.value?.length || 0);
+
     // Extract submission ID
     let sid = data?.sid || data?.submissionID || data?.submissionId || null;
     if (sid) sid = String(sid);
@@ -1515,13 +1517,18 @@ function setupJotform() {
       try { const m = JSON.stringify(data).match(/"sid"\s*:\s*"?(\d+)"?/); if (m) sid = m[1]; } catch(e) {}
     }
     if (!sid) { try { const m = window.parent.location.href.match(/\/edit\/(\d+)/); if (m) sid = m[1]; } catch(e) {} }
+    console.log("[ready] extracted sid:", sid);
     if (sid) window._jfSid = sid;
 
     // Try restore from ready event value (new combined format)
     let saved = (data?.value && data.value.trim()) ? data.value.trim() : null;
+    console.log("[ready] value from event:", saved ? saved.substring(0, 80) : "none");
 
     // Try localStorage
-    if (!saved && sid) saved = loadFromLocalStorage(sid);
+    if (!saved && sid) {
+      saved = loadFromLocalStorage(sid);
+      console.log("[ready] from localStorage:", saved ? saved.substring(0, 80) : "none");
+    }
 
     // Try JotForm API
     if (!saved && sid) {
