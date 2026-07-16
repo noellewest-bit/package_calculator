@@ -138,27 +138,51 @@ function parseCSV(text) {
 /* ══════════════════════════════════════════════
    DATA LOADING
 ══════════════════════════════════════════════ */
-async function fetchSheetCSV(sheetName) {
+async function fetchSheetCSV(sheetName, retries = 3) {
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&nocache=${Date.now()}`;
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Sheet "${sheetName}" failed: ${res.status}`);
-  return parseCSV(await res.text());
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (res.status === 429) {
+        await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); // exponential backoff
+        continue;
+      }
+      if (!res.ok) throw new Error(`Sheet "${sheetName}" failed: ${res.status}`);
+      return parseCSV(await res.text());
+    } catch(e) {
+      if (attempt === retries - 1) throw e;
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+  throw new Error(`Sheet "${sheetName}" failed after ${retries} retries`);
 }
 
-async function fetchSheetByGid(gid) {
-  const res = await fetch(CSV_BASE + gid + `&nocache=${Date.now()}`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`GID ${gid} failed`);
-  return parseCSV(await res.text());
+async function fetchSheetByGid(gid, retries = 3) {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const res = await fetch(CSV_BASE + gid + `&nocache=${Date.now()}`, { cache: "no-store" });
+      if (res.status === 429) {
+        await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+        continue;
+      }
+      if (!res.ok) throw new Error(`GID ${gid} failed`);
+      return parseCSV(await res.text());
+    } catch(e) {
+      if (attempt === retries - 1) throw e;
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+  throw new Error(`GID ${gid} failed after ${retries} retries`);
 }
 
 async function loadAllData() {
   // Fetch sheets in small batches to avoid 429 rate limiting from Google Sheets
-  async function fetchInBatches(sheetConfigs, fetchFn, batchSize = 5) {
+  async function fetchInBatches(sheetConfigs, fetchFn, batchSize = 3) {
     for (let i = 0; i < sheetConfigs.length; i += batchSize) {
       const batch = sheetConfigs.slice(i, i + batchSize);
       await Promise.allSettled(batch.map(fetchFn));
       if (i + batchSize < sheetConfigs.length) {
-        await new Promise(r => setTimeout(r, 300)); // wait 300ms between batches
+        await new Promise(r => setTimeout(r, 1000)); // wait 1 second between batches
       }
     }
   }
