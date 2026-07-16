@@ -1545,7 +1545,7 @@ function setupJotform() {
         };
 
         // New combined summary field (field 110 - Package Summary)
-        const newCombined = getStr(answers["110"]);
+        const newCombined = getStr(answers["160"]);
         console.log("[restore] field 110 (combined):", newCombined.substring(0, 80));
 
         if (newCombined && (newCombined.includes("GRAND TOTAL:") || newCombined.includes("RENTAL TOTAL:") || newCombined.includes("PURCHASE TOTAL:") || newCombined.includes("WEDDING ENTOURAGE PACKAGE"))) {
@@ -1553,7 +1553,7 @@ function setupJotform() {
           saved = newCombined;
         } else {
           // Legacy fields: 110 = package, 136 = rental, 134 = retail
-          const pkgText    = getStr(answers["110"]);
+          const pkgText    = getStr(answers["160"]);
           const rentalText = getStr(answers["136"]);
           const retailText = getStr(answers["134"]);
           console.log("[restore] field 110 (pkg):", pkgText.substring(0, 80));
