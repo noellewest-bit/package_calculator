@@ -375,7 +375,20 @@ select:disabled, input:disabled { background: #f5f0eb; color: #aaa; cursor: not-
   margin-top: 4px;
 }
 
-/* ── Payment Summary ── */
+.btn-refresh {
+  padding: 6px 10px;
+  border: 1.5px solid #d0c4b0;
+  border-radius: 7px;
+  background: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #8a6d3b;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.btn-refresh:hover { background: #f5f0eb; }
+.btn-refresh.spinning { opacity: 0.6; pointer-events: none; }
 .payment-section { margin-top: 12px; }
 .payment-grid { display: flex; flex-direction: column; gap: 10px; }
 .payment-row {
