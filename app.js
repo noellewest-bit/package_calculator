@@ -1520,9 +1520,36 @@ function setupJotform() {
     console.log("[ready] extracted sid:", sid);
     if (sid) window._jfSid = sid;
 
-    // Try restore from ready event value (new combined format)
+    // Try restore from ready event value
     let saved = (data?.value && data.value.trim()) ? data.value.trim() : null;
     console.log("[ready] value from event:", saved ? saved.substring(0, 80) : "none");
+
+    // If the value from the event is the old package-only format, treat as legacy
+    if (saved && saved.startsWith("PACKAGE:") && !saved.includes("WEDDING ENTOURAGE PACKAGE")) {
+      console.log("[ready] old package format detected, routing to legacy restore");
+      window._legacyRestore = [{ type: "package", text: saved }];
+      if (dataReady) { await restoreFromLegacy(window._legacyRestore); }
+      else { window._savedLegacyRestore = window._legacyRestore; }
+      return;
+    }
+
+    // If the value is the old rental-only format
+    if (saved && saved.includes("RENTAL TOTAL:") && !saved.includes("GRAND TOTAL:")) {
+      console.log("[ready] old rental format detected, routing to legacy restore");
+      window._legacyRestore = [{ type: "rental", text: saved }];
+      if (dataReady) { await restoreFromLegacy(window._legacyRestore); }
+      else { window._savedLegacyRestore = window._legacyRestore; }
+      return;
+    }
+
+    // If the value is the old retail-only format
+    if (saved && saved.includes("Product Name:") && !saved.includes("GRAND TOTAL:")) {
+      console.log("[ready] old retail format detected, routing to legacy restore");
+      window._legacyRestore = [{ type: "retail", text: saved }];
+      if (dataReady) { await restoreFromLegacy(window._legacyRestore); }
+      else { window._savedLegacyRestore = window._legacyRestore; }
+      return;
+    }
 
     // Try localStorage
     if (!saved && sid) {
