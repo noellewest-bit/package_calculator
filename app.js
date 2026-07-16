@@ -1145,7 +1145,9 @@ function updateGrandTotal() {
    JOTFORM INTEGRATION
 ══════════════════════════════════════════════ */
 function broadcastToJotform() {
-  const value = window.latestSubmissionText || "";
+  // Only send the summary value when Amount Paid is filled
+  const amountPaidFilled = document.getElementById("amountPaid")?.value?.trim();
+  const value = amountPaidFilled ? (window.latestSubmissionText || "") : "";
   if (typeof JFCustomWidget !== "undefined") {
     try { JFCustomWidget.sendData({ value }); } catch(e) {}
   }
@@ -1573,8 +1575,8 @@ function setupJotform() {
           console.log("[restore] found combined format in field 110");
           saved = newCombined;
         } else {
-          // Legacy fields: 110 = package, 136 = rental, 134 = retail
-          const pkgText    = getStr(answers["160"]);
+          // Legacy fields: 110 = old package, 136 = rental, 134 = retail, 160 = new combined
+          const pkgText    = getStr(answers["110"]) || getStr(answers["160"]);
           const rentalText = getStr(answers["136"]);
           const retailText = getStr(answers["134"]);
           console.log("[restore] field 110 (pkg):", pkgText.substring(0, 80));
