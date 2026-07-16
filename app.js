@@ -1532,8 +1532,6 @@ function setupJotform() {
         const res  = await fetch(`https://api.jotform.com/submission/${sid}?apiKey=${API_KEY}&nocache=${Date.now()}`);
         const json = await res.json();
         const answers = json?.content?.answers || {};
-        console.log("[restore] API response code:", json?.responseCode);
-
         // Safely get string value from any answer field
         const getStr = (ans) => {
           if (!ans) return "";
@@ -1542,33 +1540,21 @@ function setupJotform() {
           return "";
         };
 
-        // Log all keys and find package summary by content
-        let pkgFieldKey = null;
-        Object.entries(answers).forEach(([key, ans]) => {
-          const val = getStr(ans);
-          if (val.includes("PACKAGE:")) {
-            console.log("[restore] package summary in field:", key, val.substring(0, 60));
-            pkgFieldKey = key;
-          }
-        });
+        // New combined summary field (field 160)
+        const newCombined = getStr(answers["160"]);
+        console.log("[restore] field 160 (new combined):", newCombined.substring(0, 80));
 
-        console.log("[restore] field 110:", getStr(answers["110"]).substring(0, 80));
-        console.log("[restore] field 136:", getStr(answers["136"]).substring(0, 80));
-        console.log("[restore] field 134:", getStr(answers["134"]).substring(0, 80));
-        console.log("[restore] pkgFieldKey found:", pkgFieldKey);
-
-        // Combined new field
-        const combinedAns = Object.values(answers).find(ans => {
-          const val = getStr(ans);
-          return val && (val.includes("WEDDING ENTOURAGE PACKAGE") || val.includes("RENTAL ITEMS") || val.includes("PURCHASED ITEMS")) && val.includes("GRAND TOTAL:");
-        });
-        if (combinedAns) {
-          console.log("[restore] found combined format");
-          saved = getStr(combinedAns);
+        if (newCombined && (newCombined.includes("GRAND TOTAL:") || newCombined.includes("RENTAL TOTAL:") || newCombined.includes("PURCHASE TOTAL:"))) {
+          console.log("[restore] found new combined format in field 160");
+          saved = newCombined;
         } else {
-          const pkgText    = pkgFieldKey ? getStr(answers[pkgFieldKey]) : "";
+          // Legacy fields: 110 = package, 136 = rental, 134 = retail
+          const pkgText    = getStr(answers["110"]);
           const rentalText = getStr(answers["136"]);
           const retailText = getStr(answers["134"]);
+          console.log("[restore] field 110 (pkg):", pkgText.substring(0, 80));
+          console.log("[restore] field 136 (rental):", rentalText.substring(0, 80));
+          console.log("[restore] field 134 (retail):", retailText.substring(0, 80));
           console.log("[restore] pkgText length:", pkgText.length, "rentalText:", rentalText.length, "retailText:", retailText.length);
 
           if (pkgText || rentalText || retailText) {
