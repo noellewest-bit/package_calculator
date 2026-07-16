@@ -152,8 +152,19 @@ async function fetchSheetByGid(gid) {
 }
 
 async function loadAllData() {
-  // Load package + rental sheets (same sheets, same data, different columns used)
-  await Promise.allSettled(PKG_SHEETS.map(async name => {
+  // Fetch sheets in small batches to avoid 429 rate limiting from Google Sheets
+  async function fetchInBatches(sheetConfigs, fetchFn, batchSize = 5) {
+    for (let i = 0; i < sheetConfigs.length; i += batchSize) {
+      const batch = sheetConfigs.slice(i, i + batchSize);
+      await Promise.allSettled(batch.map(fetchFn));
+      if (i + batchSize < sheetConfigs.length) {
+        await new Promise(r => setTimeout(r, 300)); // wait 300ms between batches
+      }
+    }
+  }
+
+  // Load package + rental sheets
+  await fetchInBatches(PKG_SHEETS, async (name) => {
     try {
       const rows = await fetchSheetCSV(name);
       if (!rows.length) return;
@@ -201,10 +212,10 @@ async function loadAllData() {
       sheetData[name] = [];
       console.warn("Sheet failed:", name, e.message);
     }
-  }));
+  });
 
-  // Load retail sheets (by gid for retail price column)
-  await Promise.allSettled(RETAIL_SHEETS.map(async ({ label, gid }) => {
+  // Load retail sheets in batches
+  await fetchInBatches(RETAIL_SHEETS, async ({ label, gid }) => {
     try {
       const rows = await fetchSheetByGid(gid);
       if (rows.length < 2) return;
@@ -220,7 +231,7 @@ async function loadAllData() {
         retailItems.push({ category: label, name, retailPrice: price });
       }
     } catch(e) { console.warn("Retail sheet failed:", label, e.message); }
-  }));
+  });
 
   // Populate package color dropdown
   const colors = sheetData["PACKAGE COLORS"] || [];
