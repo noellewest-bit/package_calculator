@@ -1083,9 +1083,6 @@ function updateGrandTotal() {
   lines.push(`GRAND TOTAL:             ₱${money(grandTotal)}`);
 
   // Payment summary
-  const amountPaid = parseFloat(document.getElementById("amountPaid").value) || 0;
-  const discount   = parseFloat(document.getElementById("discountAmount").value) || 0;
-  const remaining  = Math.max(0, grandTotal - amountPaid - discount);
   if (amountPaid > 0 || discount > 0) {
     lines.push("");
     lines.push("PAYMENT SUMMARY");
