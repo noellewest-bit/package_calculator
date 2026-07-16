@@ -1537,12 +1537,12 @@ function setupJotform() {
           return "";
         };
 
-        // New combined summary field (field 160)
-        const newCombined = getStr(answers["160"]);
-        console.log("[restore] field 160 (new combined):", newCombined.substring(0, 80));
+        // New combined summary field (field 110 - Package Summary)
+        const newCombined = getStr(answers["110"]);
+        console.log("[restore] field 110 (combined):", newCombined.substring(0, 80));
 
-        if (newCombined && (newCombined.includes("GRAND TOTAL:") || newCombined.includes("RENTAL TOTAL:") || newCombined.includes("PURCHASE TOTAL:"))) {
-          console.log("[restore] found new combined format in field 160");
+        if (newCombined && (newCombined.includes("GRAND TOTAL:") || newCombined.includes("RENTAL TOTAL:") || newCombined.includes("PURCHASE TOTAL:") || newCombined.includes("WEDDING ENTOURAGE PACKAGE"))) {
+          console.log("[restore] found combined format in field 110");
           saved = newCombined;
         } else {
           // Legacy fields: 110 = package, 136 = rental, 134 = retail
