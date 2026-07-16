@@ -1172,7 +1172,7 @@ async function restoreFromLegacy(parts) {
   updateGrandTotal();
 }
 
-function restorePackageLegacy(text) {
+async function restorePackageLegacy(text) {
   // Old package format:
   // PACKAGE: PACKAGE 1C (SPANDEX)
   // PACKAGE COLOR: DUSTY ROSE
