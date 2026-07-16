@@ -176,19 +176,16 @@ async function fetchSheetByGid(gid, retries = 3) {
 }
 
 async function loadAllData() {
-  // Fetch sheets in small batches to avoid 429 rate limiting from Google Sheets
-  async function fetchInBatches(sheetConfigs, fetchFn, batchSize = 3) {
-    for (let i = 0; i < sheetConfigs.length; i += batchSize) {
-      const batch = sheetConfigs.slice(i, i + batchSize);
-      await Promise.allSettled(batch.map(fetchFn));
-      if (i + batchSize < sheetConfigs.length) {
-        await new Promise(r => setTimeout(r, 1000)); // wait 1 second between batches
-      }
+  // Fetch sheets sequentially to avoid 429 rate limiting
+  async function fetchSequentially(items, fetchFn, delayMs = 200) {
+    for (const item of items) {
+      await fetchFn(item);
+      await new Promise(r => setTimeout(r, delayMs));
     }
   }
 
   // Load package + rental sheets
-  await fetchInBatches(PKG_SHEETS, async (name) => {
+  await fetchSequentially(PKG_SHEETS, async (name) => {
     try {
       const rows = await fetchSheetCSV(name);
       if (!rows.length) return;
@@ -239,7 +236,7 @@ async function loadAllData() {
   });
 
   // Load retail sheets in batches
-  await fetchInBatches(RETAIL_SHEETS, async ({ label, gid }) => {
+  await fetchSequentially(RETAIL_SHEETS, async ({ label, gid }) => {
     try {
       const rows = await fetchSheetByGid(gid);
       if (rows.length < 2) return;
