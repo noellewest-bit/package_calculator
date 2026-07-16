@@ -1053,10 +1053,21 @@ function updateGrandTotal() {
   document.getElementById("grandTotalAll").textContent = money(grandTotal);
   document.getElementById("payGrandTotal").textContent = money(grandTotal);
 
-  /* ── Payment summary ── */
-  const amountPaid = parseFloat(document.getElementById("amountPaid").value) || 0;
-  const discount   = parseFloat(document.getElementById("discountAmount").value) || 0;
-  const remaining  = grandTotal - amountPaid - discount;
+  // If Amount Paid is empty, clear summary so JotForm condition can block Next
+  const amountPaidEl = document.getElementById("amountPaid");
+  const amountPaid   = parseFloat(amountPaidEl.value) || 0;
+  const discount     = parseFloat(document.getElementById("discountAmount").value) || 0;
+
+  if (!amountPaidEl.value.trim()) {
+    amountPaidEl.style.borderColor = "#e06060";
+    window.latestSubmissionText = "";
+    broadcastToJotform();
+    return;
+  } else {
+    amountPaidEl.style.borderColor = "";
+  }
+
+  const remaining = grandTotal - amountPaid - discount;
   document.getElementById("remainingBalance").textContent = money(Math.max(0, remaining));
 
   /* ── Build summary ── */
