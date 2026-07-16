@@ -1465,29 +1465,32 @@ function setupJotform() {
         const res  = await fetch(`https://api.jotform.com/submission/${sid}?apiKey=${API_KEY}&nocache=${Date.now()}`);
         const json = await res.json();
         const answers = json?.content?.answers || {};
+        console.log("[restore] API response code:", json?.responseCode);
+        console.log("[restore] field 110:", answers["110"]?.answer?.substring(0, 80));
+        console.log("[restore] field 136:", answers["136"]?.answer?.substring(0, 80));
+        console.log("[restore] field 134:", answers["134"]?.answer?.substring(0, 80));
 
-        // Field IDs for combined and legacy summary fields
-        // Combined new field (widget itself)
+        // Combined new field
         const combinedAns = Object.values(answers).find(ans => {
           const val = ans?.answer || "";
           return val && (val.includes("WEDDING ENTOURAGE PACKAGE") || val.includes("RENTAL ITEMS") || val.includes("PURCHASED ITEMS")) && val.includes("GRAND TOTAL:");
         });
         if (combinedAns?.answer) {
-          saved = combinedAns.answer; 
+          console.log("[restore] found combined format");
+          saved = combinedAns.answer;
         } else {
-          // Read the three legacy summary text boxes and merge them
           const pkgText    = answers["110"]?.answer  || "";
           const rentalText = answers["136"]?.answer || "";
           const retailText = answers["134"]?.answer || "";
+          console.log("[restore] pkgText length:", pkgText.length, "rentalText:", rentalText.length, "retailText:", retailText.length);
 
           if (pkgText || rentalText || retailText) {
-            // Build a combined restore text from the three legacy summaries
             const parts = [];
-            if (pkgText && pkgText.trim())    parts.push({ type: "package", text: pkgText.trim() });
-            if (rentalText && rentalText.trim()) parts.push({ type: "rental",  text: rentalText.trim() });
-            if (retailText && retailText.trim()) parts.push({ type: "retail",  text: retailText.trim() });
+            if (pkgText.trim())    parts.push({ type: "package", text: pkgText.trim() });
+            if (rentalText.trim()) parts.push({ type: "rental",  text: rentalText.trim() });
+            if (retailText.trim()) parts.push({ type: "retail",  text: retailText.trim() });
             if (parts.length) {
-              // Store parts separately for restore
+              console.log("[restore] using legacy restore with", parts.length, "parts");
               window._legacyRestore = parts;
               saved = "__legacy__";
             }
