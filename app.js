@@ -177,7 +177,7 @@ async function fetchSheetByGid(gid, retries = 3) {
 
 async function loadAllData() {
   // Fetch sheets sequentially to avoid 429 rate limiting
-  async function fetchSequentially(items, fetchFn, delayMs = 200) {
+  async function fetchSequentially(items, fetchFn, delayMs = 500) {
     for (const item of items) {
       await fetchFn(item);
       await new Promise(r => setTimeout(r, delayMs));
@@ -1527,27 +1527,21 @@ function setupJotform() {
     // If the value from the event is the old package-only format, treat as legacy
     if (saved && saved.startsWith("PACKAGE:") && !saved.includes("WEDDING ENTOURAGE PACKAGE")) {
       console.log("[ready] old package format detected, routing to legacy restore");
-      window._legacyRestore = [{ type: "package", text: saved }];
-      if (dataReady) { await restoreFromLegacy(window._legacyRestore); }
-      else { window._savedLegacyRestore = window._legacyRestore; }
+      window._savedLegacyRestore = [{ type: "package", text: saved }];
       return;
     }
 
     // If the value is the old rental-only format
     if (saved && saved.includes("RENTAL TOTAL:") && !saved.includes("GRAND TOTAL:")) {
       console.log("[ready] old rental format detected, routing to legacy restore");
-      window._legacyRestore = [{ type: "rental", text: saved }];
-      if (dataReady) { await restoreFromLegacy(window._legacyRestore); }
-      else { window._savedLegacyRestore = window._legacyRestore; }
+      window._savedLegacyRestore = [{ type: "rental", text: saved }];
       return;
     }
 
     // If the value is the old retail-only format
     if (saved && saved.includes("Product Name:") && !saved.includes("GRAND TOTAL:")) {
       console.log("[ready] old retail format detected, routing to legacy restore");
-      window._legacyRestore = [{ type: "retail", text: saved }];
-      if (dataReady) { await restoreFromLegacy(window._legacyRestore); }
-      else { window._savedLegacyRestore = window._legacyRestore; }
+      window._savedLegacyRestore = [{ type: "retail", text: saved }];
       return;
     }
 
@@ -1604,8 +1598,7 @@ function setupJotform() {
     }
 
     if (saved === "__legacy__") {
-      if (dataReady) { await restoreFromLegacy(window._legacyRestore); }
-      else { window._savedLegacyRestore = window._legacyRestore; }
+      window._savedLegacyRestore = window._legacyRestore;
     } else if (saved) {
       if (dataReady) { await restoreFromSummary(saved); }
       else { window._savedRestoreText = saved; }
