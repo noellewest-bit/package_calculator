@@ -1486,6 +1486,15 @@ function setupJotform() {
   if (typeof JFCustomWidget === "undefined") return;
 
   JFCustomWidget.subscribe("submit", () => {
+    const amountPaid = parseFloat(document.getElementById("amountPaid").value) || 0;
+    if (!document.getElementById("amountPaid").value.trim()) {
+      // Highlight the field and block submission
+      document.getElementById("amountPaid").style.borderColor = "#e06060";
+      document.getElementById("amountPaid").scrollIntoView({ behavior: "smooth", block: "center" });
+      JFCustomWidget.sendSubmit({ valid: false, value: window.latestSubmissionText || "" });
+      return;
+    }
+    document.getElementById("amountPaid").style.borderColor = "";
     updateGrandTotal();
     JFCustomWidget.sendSubmit({ valid: true, value: window.latestSubmissionText || "" });
   });
@@ -1593,7 +1602,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   await waitForJotform();
   setupJotform();
 
-  document.getElementById("amountPaid").addEventListener("input", updateGrandTotal);
+  document.getElementById("amountPaid").addEventListener("input", () => {
+    document.getElementById("amountPaid").style.borderColor = "";
+    updateGrandTotal();
+  });
   document.getElementById("discountAmount").addEventListener("input", updateGrandTotal);
 
   document.getElementById("refreshBtn").addEventListener("click", async () => {
