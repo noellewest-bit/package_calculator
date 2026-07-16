@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Wedding Entourage Package Calculator</title>
+  <title>Noelle West Transaction Calculator</title>
   <script src="https://js.jotform.com/JotFormCustomWidget.min.js"></script>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -11,63 +11,235 @@
 
   <div id="loadingOverlay">
     <div class="spinner"></div>
-    <div>Loading inventory data…</div>
+    <div>Loading inventory…</div>
   </div>
 
-  <h1>Wedding Entourage Package Calculator</h1>
+  <!-- TABS -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="package">Wedding Package</button>
+    <button class="tab-btn" data-tab="rental">Rental Items</button>
+    <button class="tab-btn" data-tab="retail">Purchased Items</button>
+  </div>
 
-  <!-- PACKAGE SELECTOR -->
-  <div class="section">
-    <h3>Package</h3>
-    <div style="display:grid;gap:10px;">
-      <select id="packageType">
-        <option value="5200">PACKAGE 1C (SPANDEX)</option>
-        <option value="6200">PACKAGE 2C (CHIFFON)</option>
-        <option value="7000">PACKAGE 3C (SPANDEX)</option>
-        <option value="8200">PACKAGE 4C (CHIFFON)</option>
-      </select>
-      <select id="packageColor">
-        <option value="">— Select Package Color —</option>
-      </select>
+  <!-- ══ PACKAGE TAB ══ -->
+  <div id="tab-package" class="tab-panel">
+    <div class="section">
+      <h3>Package</h3>
+      <div style="display:grid;gap:10px;">
+        <select id="packageType">
+          <option value="5200">PACKAGE 1C (SPANDEX)</option>
+          <option value="6200">PACKAGE 2C (CHIFFON)</option>
+          <option value="7000">PACKAGE 3C (SPANDEX)</option>
+          <option value="8200">PACKAGE 4C (CHIFFON)</option>
+        </select>
+        <select id="packageColor">
+          <option value="">— Select Package Color —</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Package Items</h3>
+      <div class="pkg-header">
+        <div>Item</div>
+        <div>Qty</div>
+        <div>Unit Price</div>
+        <div>Subtotal</div>
+      </div>
+      <div id="itemRows"></div>
+    </div>
+
+    <div class="section">
+      <h3>Add-On Items <span class="subtle">(20% OFF Regular Rate)</span></h3>
+      <div class="addon-header">
+        <div>Category</div>
+        <div>Item Code</div>
+        <div>Price Type</div>
+        <div>Qty</div>
+        <div>Regular</div>
+        <div>Charged</div>
+        <div></div>
+      </div>
+      <div id="addonRows"></div>
+      <button class="btn-add" id="addAddonBtn">+ Add Item</button>
+    </div>
+
+    <div class="totals">
+      <div class="total-row"><span>Package Subtotal</span><span>₱<span id="packageSubtotal">0.00</span></span></div>
+      <div class="total-row"><span>Add-On Subtotal</span><span>₱<span id="addonSubtotal">0.00</span></span></div>
+      <div class="total-row section-grand"><span>Package Total</span><span>₱<span id="packageTotal">0.00</span></span></div>
     </div>
   </div>
 
-  <!-- PACKAGE ITEMS -->
-  <div class="section">
-    <h3>Package Items</h3>
-    <div class="pkg-header">
-      <div>Item</div>
-      <div>Qty</div>
-      <div>Unit Price</div>
-      <div>Subtotal</div>
+  <!-- ══ RENTAL TAB ══ -->
+  <div id="tab-rental" class="tab-panel hidden">
+    <div class="section">
+      <h3>Add Rental Item</h3>
+      <div class="tab-sub-bar">
+        <button class="sub-tab-btn active" data-subtab="tracked">Tracked Items</button>
+        <button class="sub-tab-btn" data-subtab="quantity">Quantity Items</button>
+      </div>
+
+      <!-- Tracked -->
+      <div id="rental-panel-tracked">
+        <div class="form-grid">
+          <div class="field-group">
+            <div class="field-label">Category</div>
+            <select id="r-t-category">
+              <option value="">— Select category —</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <div class="field-label">Item</div>
+            <div class="search-container" id="r-t-search-wrap">
+              <input type="text" class="search-input" id="r-t-search" placeholder="Search item…" disabled autocomplete="off">
+              <div class="search-dropdown" id="r-t-dropdown"></div>
+            </div>
+          </div>
+          <div id="r-t-price-selector" class="price-selector" style="display:none">
+            <div class="field-label">Pricing Type</div>
+            <div class="price-toggle-group">
+              <label class="price-toggle-option">
+                <input type="radio" name="r-t-price-type" value="rental" checked>
+                <div class="price-toggle-card">
+                  <div class="price-toggle-label">Rental Rate</div>
+                  <div class="price-toggle-amount" id="r-t-rental-display">—</div>
+                </div>
+              </label>
+              <label class="price-toggle-option">
+                <input type="radio" name="r-t-price-type" value="firstUser">
+                <div class="price-toggle-card">
+                  <div class="price-toggle-label">First User</div>
+                  <div class="price-toggle-amount" id="r-t-fu-display">—</div>
+                </div>
+              </label>
+            </div>
+          </div>
+          <div class="rate-preview" id="r-t-rate-preview">
+            <span class="rate-label">Rate</span>
+            <span class="rate-value empty" id="r-t-rate-val">Select an item</span>
+          </div>
+          <button class="btn-add" id="r-t-add-btn" disabled>Add Item</button>
+          <div class="error-msg" id="r-t-error"></div>
+        </div>
+      </div>
+
+      <!-- Quantity -->
+      <div id="rental-panel-quantity" style="display:none">
+        <div class="form-grid">
+          <div class="input-row qty-layout">
+            <div class="field-group">
+              <div class="field-label">Category</div>
+              <select id="r-q-category">
+                <option value="">— Select —</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <div class="field-label">Size / Variant</div>
+              <select id="r-q-size" disabled>
+                <option value="">— Select —</option>
+              </select>
+            </div>
+          </div>
+          <div class="field-group">
+            <div class="field-label">Quantity</div>
+            <input type="number" id="r-q-qty" min="1" value="1" disabled>
+          </div>
+          <div class="rate-preview">
+            <span class="rate-label">Rental Rate</span>
+            <span class="rate-value empty" id="r-q-rate-val">Select an item</span>
+          </div>
+          <button class="btn-add" id="r-q-add-btn" disabled>Add Item</button>
+          <div class="error-msg" id="r-q-error"></div>
+        </div>
+      </div>
     </div>
-    <div id="itemRows"></div>
+
+    <div class="section">
+      <h3>Rental Items <span class="item-badge" id="rental-badge">0</span></h3>
+      <div id="rental-items-empty" class="items-empty">No rental items added yet.</div>
+      <div id="rental-items-list"></div>
+    </div>
+
+    <div class="totals">
+      <div class="total-row section-grand"><span>Rental Total</span><span>₱<span id="rentalTotal">0.00</span></span></div>
+    </div>
   </div>
 
-  <!-- ADD-ONS -->
-  <div class="section">
-    <h3>Add-On Items <span style="font-weight:400;color:#b08a50;font-size:0.75rem;">(20% OFF Regular Rate)</span></h3>
-    <div class="addon-header">
-      <div>Category</div>
-      <div>Item Code</div>
-      <div>Price Type</div>
-      <div>Qty</div>
-      <div>Regular</div>
-      <div>Charged</div>
-      <div></div>
+  <!-- ══ RETAIL TAB ══ -->
+  <div id="tab-retail" class="tab-panel hidden">
+    <div class="section">
+      <h3>Add Purchase Item</h3>
+      <div class="form-grid">
+        <div class="field-group">
+          <div class="field-label">Category</div>
+          <select id="ret-category">
+            <option value="">— Select category —</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <div class="field-label">Item</div>
+          <div class="search-container" id="ret-search-wrap">
+            <input type="text" class="search-input" id="ret-search" placeholder="Search item…" disabled autocomplete="off">
+            <div class="search-dropdown" id="ret-dropdown"></div>
+          </div>
+        </div>
+        <div class="rate-preview">
+          <span class="rate-label">Retail Price</span>
+          <span class="rate-value empty" id="ret-price-val">Select an item</span>
+        </div>
+        <button class="btn-add" id="ret-add-btn" disabled>Add Item</button>
+        <div class="error-msg" id="ret-error"></div>
+      </div>
     </div>
-    <div id="addonRows"></div>
-    <button class="btn-add" id="addAddonBtn">+ Add Item</button>
+
+    <div class="section">
+      <h3>Purchased Items <span class="item-badge" id="retail-badge">0</span></h3>
+      <div id="retail-items-empty" class="items-empty">No items added yet.</div>
+      <div id="retail-items-list"></div>
+    </div>
+
+    <div class="totals">
+      <div class="total-row section-grand"><span>Purchase Total</span><span>₱<span id="retailTotal">0.00</span></span></div>
+    </div>
   </div>
 
-  <!-- TOTALS -->
-  <div class="totals">
-    <div class="total-row"><span>Package Subtotal</span><span>₱<span id="packageSubtotal">0.00</span></span></div>
-    <div class="total-row"><span>Add-On Subtotal</span><span>₱<span id="addonSubtotal">0.00</span></span></div>
-    <div class="total-row grand"><span>Grand Total</span><span>₱<span id="grandTotal">0.00</span></span></div>
+  <!-- GRAND TOTAL -->
+  <div class="grand-total-bar">
+    <span>GRAND TOTAL</span>
+    <span>₱<span id="grandTotalAll">0.00</span></span>
+  </div>
+
+  <!-- PAYMENT SUMMARY -->
+  <div class="section payment-section">
+    <h3>Payment Summary</h3>
+    <div class="payment-grid">
+      <div class="payment-row">
+        <span class="payment-label">Grand Total</span>
+        <span class="payment-value">₱<span id="payGrandTotal">0.00</span></span>
+      </div>
+      <div class="payment-row input-row-payment">
+        <label class="payment-label" for="amountPaid">Amount Paid</label>
+        <div class="payment-input-wrap">
+          <span class="peso-sign">₱</span>
+          <input type="number" id="amountPaid" min="0" step="0.01" placeholder="0.00">
+        </div>
+      </div>
+      <div class="payment-row input-row-payment">
+        <label class="payment-label" for="discountAmount">Discount</label>
+        <div class="payment-input-wrap">
+          <span class="peso-sign">₱</span>
+          <input type="number" id="discountAmount" min="0" step="0.01" placeholder="0.00">
+        </div>
+      </div>
+      <div class="payment-divider"></div>
+      <div class="payment-row remaining-row">
+        <span class="payment-label">Remaining Balance</span>
+        <span class="payment-value remaining-value">₱<span id="remainingBalance">0.00</span></span>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>
-
 </body>
 </html>

@@ -1,21 +1,14 @@
 /* ══════════════════════════════════════════════
-   CONFIG
+   NOELLE WEST COMBINED TRANSACTION CALCULATOR
+   Package + Rental + Retail in one widget
 ══════════════════════════════════════════════ */
-const SHEET_ID = "1-QD9UJ99Rjl1JPlBdKPo7hz5MBOiJKkMyD-qWlD520s";
 
-// !! REPLACE THIS with your deployed Apps Script URL after deploying
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJhhGu_5QfQYmOfswMNZPRGxnKD8PgU5DxKAI6DFCKgPUlU4gX7H-FKLOWoV6Ea65B/exec";
+const SHEET_ID   = "1-QD9UJ99Rjl1JPlBdKPo7hz5MBOiJKkMyD-qWlD520s";
+const API_KEY    = "6b9359da26ff8421a11c7f9dca4553a9";
+const CSV_BASE   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=`;
 
-function getSessionId() {
-  // 5-second bucket: all iframes from same page load share this ID
-  // Users loading 5+ seconds apart get different IDs
-  if (!window._calcSessionId) {
-    window._calcSessionId = "load_" + Math.floor(Date.now() / 60000);
-  }
-  return window._calcSessionId;
-}
-
-const ALL_SHEETS = [
+/* ── Sheet configs ── */
+const PKG_SHEETS = [
   "BGS","BGI","PGS","PGI","MOH","BMG","FGG","PGC","FIL",
   "MG","CD","MS","CS","PET-#","PET","BCPO","BOY","BPSC",
   "BPO","BPOL","BPS","COAT BARONG","BCC","BPOC","VST",
@@ -23,330 +16,325 @@ const ALL_SHEETS = [
   "BGI-ADD ON","PGI-ADD ON"
 ];
 
-// All categories available in Add-On dropdown (excludes PACKAGE COLORS, BGI, PGI)
-const ADDON_CATS = [
+const PKG_ADDON_CATS = [
   "BGS","BGI-ADD ON","PGS","PGI-ADD ON","MOH","BMG","FGG","PGC","FIL",
   "MG","CD","MS","CS","PET-#","PET","BCPO","BOY","BPSC",
   "BPO","BPOL","BPS","COAT BARONG","BCC","BPOC","VST",
   "S-UPPER","POLO","ACC","PEN","PANTS"
 ];
 
-const BG_CATS = ["BGI","BGS","PGI","PGS","CD"];
-const MG_CATS = ["MG","PGI","PGS","CD","BGI","BGS"];
+const BG_CATS  = ["BGI","BGS","PGI","PGS","CD"];
+const MG_CATS  = ["MG","PGI","PGS","CD","BGI","BGS"];
 
-/* ══════════════════════════════════════════════
-   PACKAGE PRICES
-══════════════════════════════════════════════ */
+const RENTAL_TRACKED_CATS = [
+  "BGI","BGS","PGI","PGS","PGC","FIL","MG","CD","MS","CS","S-UPPER","PET-#"
+];
+const RENTAL_QTY_CATS = [
+  "BCPO","BOY","BPSC","BPO","BPOL","BPS","COAT BARONG","BCC","BPOC",
+  "VST","POLO","ACC","PEN","PANTS","MOH","BMG","FGG","PET"
+];
+
+const RETAIL_SHEETS = [
+  { label: "BGI",     gid: "189628887"  },
+  { label: "BGS",     gid: "1149316761" },
+  { label: "PGI",     gid: "1078506480" },
+  { label: "PGS",     gid: "1175324516" },
+  { label: "PGC",     gid: "1142319531" },
+  { label: "FIL",     gid: "1338479475" },
+  { label: "MG",      gid: "479297482"  },
+  { label: "CD",      gid: "159828861"  },
+  { label: "MS",      gid: "810437052"  },
+  { label: "CS",      gid: "1877793641" },
+  { label: "S-UPPER", gid: "1177779497" },
+];
+
+/* ── Package prices ── */
 const packageNames = {
   "5200": "PACKAGE 1C (SPANDEX)",
   "6200": "PACKAGE 2C (CHIFFON)",
   "7000": "PACKAGE 3C (SPANDEX)",
   "8200": "PACKAGE 4C (CHIFFON)"
 };
-
 const packagePrices = {
   "5200": {
-    bridal_gown: ["Bridal Gown",    600.00],
-    groom:       ["Groom Barong",   175.00],
-    maid:        ["Maid of Honor",  280.50],
-    bridesmaid:  ["Bridesmaid",     280.50],
-    flower:      ["Flower Girl",    196.35],
-    child:       ["BPO Child",       84.15],
-    mother:      ["Mother's Gown",  252.45],
-    men:         ["Men's Barong",   100.98]
+    bridal_gown: ["Bridal Gown",   600.00], groom: ["Groom Barong",  175.00],
+    maid:        ["Maid of Honor", 280.50], bridesmaid: ["Bridesmaid", 280.50],
+    flower:      ["Flower Girl",   196.35], child: ["BPO Child",       84.15],
+    mother:      ["Mother's Gown", 252.45], men:   ["Men's Barong",   100.98]
   },
   "6200": {
-    bridal_gown: ["Bridal Gown",    659.04],
-    groom:       ["Groom Barong",   192.22],
-    maid:        ["Maid of Honor",  384.44],
-    bridesmaid:  ["Bridesmaid",     384.44],
-    flower:      ["Flower Girl",    302.06],
-    child:       ["BPO Child",       82.38],
-    mother:      ["Mother's Gown",  247.14],
-    men:         ["Men's Barong",    98.86]
+    bridal_gown: ["Bridal Gown",   659.04], groom: ["Groom Barong",  192.22],
+    maid:        ["Maid of Honor", 384.44], bridesmaid: ["Bridesmaid", 384.44],
+    flower:      ["Flower Girl",   302.06], child: ["BPO Child",       82.38],
+    mother:      ["Mother's Gown", 247.14], men:   ["Men's Barong",    98.86]
   },
   "7000": {
-    bridal_gown: ["Bridal Gown",    615.48],
-    groom:       ["Groom Suit",     461.61],
-    maid:        ["Maid of Honor",  256.45],
-    bridesmaid:  ["Bridesmaid",     256.45],
-    flower:      ["Flower Girl",    179.52],
-    child:       ["Child Suit",     256.45],
-    mother:      ["Mother's Gown",  230.81],
-    men:         ["Men's Set",      282.10]
+    bridal_gown: ["Bridal Gown",   615.48], groom: ["Groom Suit",    461.61],
+    maid:        ["Maid of Honor", 256.45], bridesmaid: ["Bridesmaid", 256.45],
+    flower:      ["Flower Girl",   179.52], child: ["Child Suit",     256.45],
+    mother:      ["Mother's Gown", 230.81], men:   ["Men's Set",      282.10]
   },
   "8200": {
-    bridal_gown: ["Bridal Gown",    620.88],
-    groom:       ["Groom Suit",     465.66],
-    maid:        ["Maid of Honor",  362.18],
-    bridesmaid:  ["Bridesmaid",     362.18],
-    flower:      ["Flower Girl",    284.57],
-    child:       ["Child Suit",     258.70],
-    mother:      ["Mother's Gown",  232.83],
-    men:         ["Men's Set",      284.57]
+    bridal_gown: ["Bridal Gown",   620.88], groom: ["Groom Suit",    465.66],
+    maid:        ["Maid of Honor", 362.18], bridesmaid: ["Bridesmaid", 362.18],
+    flower:      ["Flower Girl",   284.57], child: ["Child Suit",     258.70],
+    mother:      ["Mother's Gown", 232.83], men:   ["Men's Set",      284.57]
   }
 };
-
 const pkgKeys = Object.keys(packagePrices["5200"]);
 
-/* ══════════════════════════════════════════════
-   STATE
-══════════════════════════════════════════════ */
-const sheetData = {};
-let dataReady = false;
+/* ── State ── */
+const sheetData    = {};   // package + rental sheets keyed by name
+let rentalMaster   = [];   // [{category, name, rentalRate, firstUserPrice, type}]
+let retailItems    = [];   // [{category, name, retailPrice}]
+let rentalCart     = [];
+let retailCart     = [];
+let dataReady      = false;
 window.latestSubmissionText = "";
+window._jfSid      = null;
 
-/* ══════════════════════════════════════════════
-   HELPERS
-══════════════════════════════════════════════ */
-function money(x) {
-  return Number(x || 0).toLocaleString("en-PH", {
-    minimumFractionDigits: 2, maximumFractionDigits: 2
-  });
+/* ── Helpers ── */
+function money(n) {
+  return Number(n || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function moneyPlain(n) { return money(n); }
+function uid() { return Math.random().toString(36).slice(2, 9); }
+function esc(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function cleanPrice(raw) {
+  if (raw == null) return null;
+  const s = String(raw).replace(/₱/g,"").replace(/,/g,"").replace(/\s/g,"").trim();
+  if (!s || s.toLowerCase() === "nan") return null;
+  const f = parseFloat(s);
+  return isNaN(f) ? null : (f >= 0 ? f : null);
 }
 
 /* ══════════════════════════════════════════════
-   FETCH SHEET DATA
+   CSV PARSER
 ══════════════════════════════════════════════ */
-async function fetchSheet(sheetName, gid = null) {
-  const url = gid
-    ? `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`
-    : `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-  const res = await fetch(url);
-  const text = await res.text();
-
-  // Parse CSV manually
-  const rows = text.trim().split("\n").map(line => {
-    const cells = [];
-    let cur = "", inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') { inQ = !inQ; }
-      else if (ch === "," && !inQ) { cells.push(cur.trim()); cur = ""; }
-      else { cur += ch; }
-    }
-    cells.push(cur.trim());
-    return cells;
-  });
-
-  if (rows.length < 2) return [];
-
-  const headers = rows[0].map(h => h.replace(/^"|"$/g, "").toUpperCase().trim());
-  let rateColIdx      = headers.findIndex(h => h.includes("RENTAL RATE"));
-  let firstUserColIdx = headers.findIndex(h => h.includes("FIRST USER"));
-  console.log(`[${sheetName}] headers:`, headers, `| rentalCol: ${rateColIdx} | fuCol: ${firstUserColIdx}`);
-
-  const items = [];
-  for (let i = 1; i < rows.length; i++) {
-    const row  = rows[i];
-    const code = row[0]?.replace(/^"|"$/g, "").trim();
-    if (!code) continue;
-
-    let rentalRate = null;
-    if (rateColIdx >= 0 && row[rateColIdx]) {
-      const v = parseFloat(row[rateColIdx].replace(/[^0-9.]/g, ""));
-      if (v > 0) rentalRate = v;
-    }
-
-    let firstUser = null;
-    if (firstUserColIdx >= 0 && row[firstUserColIdx]) {
-      const v = parseFloat(row[firstUserColIdx].replace(/[^0-9.]/g, ""));
-      if (v > 0) firstUser = v;
-    }
-
-    items.push({ code, rentalRate, firstUser });
-  }
-  return items;
-}
-
-// Sheets that need to be fetched by gid instead of name (spaces/special chars in name)
-const SHEET_GIDS = {
-  "BGI-ADD ON": "1816801973",
-  "PGI-ADD ON": "549742471"
-};
-
-async function loadAllSheets() {
-  const results = await Promise.allSettled(
-    ALL_SHEETS.map(name => {
-      const gid = SHEET_GIDS[name] || null;
-      return fetchSheet(name, gid).then(items => ({ name, items }));
-    })
-  );
-  for (const r of results) {
-    if (r.status === "fulfilled") {
-      sheetData[r.value.name] = r.value.items;
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = "", inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i], n = text[i+1];
+    if (inQ) {
+      if (c === '"' && n === '"') { field += '"'; i++; }
+      else if (c === '"') { inQ = false; }
+      else { field += c; }
     } else {
-      const idx = results.indexOf(r);
-      sheetData[ALL_SHEETS[idx]] = [];
-      console.warn("Failed to load sheet:", r.reason);
+      if (c === '"') { inQ = true; }
+      else if (c === ',') { row.push(field.trim()); field = ""; }
+      else if (c === '\n' || (c === '\r' && n === '\n')) {
+        if (c === '\r') i++;
+        row.push(field.trim()); rows.push(row); row = []; field = "";
+      } else { field += c; }
     }
   }
-  populateColorDropdown();
+  if (field || row.length) { row.push(field.trim()); rows.push(row); }
+  return rows.filter(r => r.some(c => c !== ""));
+}
+
+/* ══════════════════════════════════════════════
+   DATA LOADING
+══════════════════════════════════════════════ */
+async function fetchSheetCSV(sheetName) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Sheet "${sheetName}" failed: ${res.status}`);
+  return parseCSV(await res.text());
+}
+
+async function fetchSheetByGid(gid) {
+  const res = await fetch(CSV_BASE + gid);
+  if (!res.ok) throw new Error(`GID ${gid} failed`);
+  return parseCSV(await res.text());
+}
+
+async function loadAllData() {
+  // Load package + rental sheets (same sheets, same data, different columns used)
+  await Promise.allSettled(PKG_SHEETS.map(async name => {
+    try {
+      const rows = await fetchSheetCSV(name);
+      if (!rows.length) return;
+      const headers = rows[0].map(h => h.toUpperCase().trim());
+      let rentalCol = -1, retailCol = -1, fuCol = -1;
+      headers.forEach((h, i) => {
+        if (i === 0) return;
+        if (rentalCol === -1 && (
+          (h.includes("RENTAL") && (h.includes("RATE") || h.includes("FEE") || h.includes("PRICE"))) ||
+          h === "RENTAL" || h === "RATE" || h === "PRICE" || h === "AMOUNT"
+        )) rentalCol = i;
+        if (h.includes("RETAIL") && h.includes("PRICE")) retailCol = i;
+        if (h.includes("FIRST") && h.includes("USER")) fuCol = i;
+      });
+      if (rentalCol === -1 && headers.length >= 2) rentalCol = 1;
+
+      const items = [];
+      for (let r = 1; r < rows.length; r++) {
+        const row  = rows[r];
+        const code = row[0]?.trim();
+        if (!code) continue;
+        const rentalRate     = rentalCol >= 0 ? cleanPrice(row[rentalCol]) : null;
+        const firstUserPrice = fuCol     >= 0 ? cleanPrice(row[fuCol])     : null;
+        const retailPrice    = retailCol >= 0 ? cleanPrice(row[retailCol]) : null;
+        items.push({ code, rentalRate, firstUserPrice, retailPrice });
+      }
+      sheetData[name] = items;
+
+      // Build rental master list from rental sheets
+      const isQty = RENTAL_QTY_CATS.includes(name);
+      const isTrk = RENTAL_TRACKED_CATS.includes(name);
+      if (isQty || isTrk) {
+        for (const item of items) {
+          const effectiveRental = (isQty && item.rentalRate == null) ? 0 : item.rentalRate;
+          rentalMaster.push({
+            category: name,
+            name: item.code,
+            rentalRate: effectiveRental,
+            firstUserPrice: item.firstUserPrice,
+            type: isQty ? "QUANTITY" : "TRACKED"
+          });
+        }
+      }
+    } catch(e) {
+      sheetData[name] = [];
+      console.warn("Sheet failed:", name, e.message);
+    }
+  }));
+
+  // Load retail sheets (by gid for retail price column)
+  await Promise.allSettled(RETAIL_SHEETS.map(async ({ label, gid }) => {
+    try {
+      const rows = await fetchSheetByGid(gid);
+      if (rows.length < 2) return;
+      const headers = rows[0].map(h => h.trim().toLowerCase());
+      const priceCol = headers.findIndex(h => h.includes("retail"));
+      if (priceCol === -1) return;
+      for (let r = 1; r < rows.length; r++) {
+        const row  = rows[r];
+        const name = (row[0] || "").trim();
+        if (!name || name.toLowerCase() === "nan") continue;
+        const price = cleanPrice(row[priceCol]);
+        if (price == null) continue;
+        retailItems.push({ category: label, name, retailPrice: price });
+      }
+    } catch(e) { console.warn("Retail sheet failed:", label, e.message); }
+  }));
+
+  // Populate package color dropdown
+  const colors = sheetData["PACKAGE COLORS"] || [];
+  const colorSel = document.getElementById("packageColor");
+  colors.forEach(({ code }) => {
+    if (!code) return;
+    const opt = document.createElement("option");
+    opt.value = code; opt.textContent = code;
+    colorSel.appendChild(opt);
+  });
+
   dataReady = true;
   document.getElementById("loadingOverlay").style.display = "none";
-  render();
+
+  // Build all UIs
+  renderPackage();
+  buildRentalTrackedPanel();
+  buildRentalQtyPanel();
+  buildRetailPanel();
+
+  // Restore if we captured data from ready event
+  if (window._savedRestoreText) {
+    await restoreFromSummary(window._savedRestoreText);
+    window._savedRestoreText = null;
+  }
+
+  updateGrandTotal();
 }
 
 /* ══════════════════════════════════════════════
-   PACKAGE COLOR DROPDOWN
+   TAB SWITCHING
 ══════════════════════════════════════════════ */
-function populateColorDropdown() {
-  const sel = document.getElementById("packageColor");
-  const colors = sheetData["PACKAGE COLORS"] || [];
-  while (sel.options.length > 1) sel.remove(1);
-  for (const { code } of colors) {
-    if (!code) continue;
-    const opt = document.createElement("option");
-    opt.value = code;
-    opt.textContent = code;
-    sel.appendChild(opt);
-  }
-}
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.add("hidden"));
+    btn.classList.add("active");
+    document.getElementById("tab-" + btn.dataset.tab).classList.remove("hidden");
+  });
+});
+
+document.querySelectorAll(".sub-tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".sub-tab-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    const sub = btn.dataset.subtab;
+    document.getElementById("rental-panel-tracked").style.display = sub === "tracked" ? "" : "none";
+    document.getElementById("rental-panel-quantity").style.display = sub === "quantity" ? "" : "none";
+  });
+});
 
 /* ══════════════════════════════════════════════
    SEARCHABLE SELECT COMPONENT
 ══════════════════════════════════════════════ */
-function createSearchSelect({ placeholder, options, onSelect, required = false }) {
-  const wrap = document.createElement("div");
-  wrap.className = "search-select-wrap";
-
-  const input = document.createElement("input");
-  input.type = "text";
-  input.className = "search-input";
-  input.placeholder = placeholder;
-  input.autocomplete = "off";
-
-  const arrow = document.createElement("span");
-  arrow.className = "dropdown-arrow";
-  arrow.textContent = "▾";
-
-  const list = document.createElement("div");
-  list.className = "options-list";
-
-  wrap.appendChild(input);
-  wrap.appendChild(arrow);
-  wrap.appendChild(list);
-
-  let selectedValue = "";
-  let allOptions = [...options];
+function createSearchSelect(inputId, dropId, options, onSelect) {
+  const input = document.getElementById(inputId);
+  const drop  = document.getElementById(dropId);
+  let allOpts = [...options];
+  let selected = "";
 
   function buildList(filter) {
-    list.innerHTML = "";
+    drop.innerHTML = "";
     const lower = filter.toLowerCase();
-    const filtered = allOptions.filter(o => o.toLowerCase().includes(lower));
+    const filtered = allOpts.filter(o => o.toLowerCase().includes(lower));
     if (!filtered.length) {
-      const d = document.createElement("div");
-      d.className = "opt no-results";
-      d.textContent = "No results";
-      list.appendChild(d);
+      drop.innerHTML = '<div class="dropdown-item no-results">No results</div>';
     } else {
-      for (const o of filtered) {
+      filtered.slice(0, 200).forEach(o => {
         const d = document.createElement("div");
-        d.className = "opt";
+        d.className = "dropdown-item";
         d.textContent = o;
         d.addEventListener("mousedown", e => {
           e.preventDefault();
-          selectedValue = o;
+          selected = o;
           input.value = o;
-          if (required) wrap.classList.remove("required-empty");
-          list.classList.remove("open");
+          drop.classList.remove("open");
           onSelect(o);
         });
-        list.appendChild(d);
-      }
+        drop.appendChild(d);
+      });
     }
   }
 
-  input.addEventListener("focus", () => { buildList(input.value); list.classList.add("open"); });
-  input.addEventListener("input", () => { selectedValue = ""; buildList(input.value); list.classList.add("open"); });
-  input.addEventListener("blur", () => {
+  input.addEventListener("focus", () => { buildList(input.value); drop.classList.add("open"); });
+  input.addEventListener("input", () => { selected = ""; buildList(input.value); drop.classList.add("open"); });
+  input.addEventListener("blur",  () => {
     setTimeout(() => {
-      list.classList.remove("open");
-      if (input.value !== selectedValue) input.value = selectedValue;
-      if (required && !selectedValue) wrap.classList.add("required-empty");
+      drop.classList.remove("open");
+      if (input.value !== selected) input.value = selected;
     }, 150);
   });
 
-  wrap.getValue  = () => selectedValue;
-  wrap.setValue  = (v) => { selectedValue = v; input.value = v; };
-  wrap.setOptions = (newOptions) => { allOptions = [...newOptions]; selectedValue = ""; input.value = ""; };
-  wrap.markRequired = () => { if (!selectedValue) wrap.classList.add("required-empty"); };
-
-  return wrap;
+  return {
+    getValue: () => selected,
+    setValue: (v) => { selected = v; input.value = v; },
+    setOptions: (opts) => { allOpts = [...opts]; selected = ""; input.value = ""; },
+    reset: () => { selected = ""; input.value = ""; allOpts = []; }
+  };
 }
 
 /* ══════════════════════════════════════════════
-   GOWN PICKERS
+   PACKAGE CALCULATOR
 ══════════════════════════════════════════════ */
-function buildGownPickers(containerId, qty, allowedCats, labelPrefix) {
-  const container = document.getElementById(containerId);
-  container.innerHTML = "";
-  if (qty <= 0) return;
-
-  for (let i = 0; i < qty; i++) {
-    const set = document.createElement("div");
-    set.className = "gown-picker-set";
-
-    const label = document.createElement("div");
-    label.className = "gown-picker-label";
-    label.textContent = qty === 1
-      ? labelPrefix + " Item Code"
-      : labelPrefix + " #" + (i + 1) + " Item Code";
-    set.appendChild(label);
-
-    const row = document.createElement("div");
-    row.className = "gown-picker-row";
-
-    // Category select
-    const catSel = document.createElement("select");
-    catSel.className = "gown-cat-sel";
-    const defOpt = document.createElement("option");
-    defOpt.value = ""; defOpt.textContent = "— Category —";
-    catSel.appendChild(defOpt);
-    for (const cat of allowedCats) {
-      const o = document.createElement("option");
-      o.value = cat; o.textContent = cat;
-      catSel.appendChild(o);
-    }
-
-    // Item code searchable select
-    const itemSearch = createSearchSelect({
-      placeholder: "— Item Code —",
-      options: [],
-      onSelect: () => calc(),
-      required: true
-    });
-    itemSearch.classList.add("gown-item-sel");
-
-    catSel.addEventListener("change", () => {
-      const cat = catSel.value;
-      itemSearch.setOptions(cat && sheetData[cat] ? sheetData[cat].map(r => r.code) : []);
-      calc();
-    });
-
-    row.appendChild(catSel);
-    row.appendChild(itemSearch);
-    set.appendChild(row);
-    container.appendChild(set);
-  }
-}
-
-/* ══════════════════════════════════════════════
-   RENDER PACKAGE ITEMS
-══════════════════════════════════════════════ */
-function render() {
-  const pkg = document.getElementById("packageType").value;
+function renderPackage() {
+  const pkg  = document.getElementById("packageType").value;
   const wrap = document.getElementById("itemRows");
   wrap.innerHTML = "";
 
   pkgKeys.forEach(k => {
     const [name, price] = packagePrices[pkg][k];
-
     const row = document.createElement("div");
     row.className = "pkg-row";
     row.dataset.k = k;
 
-    // Col 1: label + gown pickers
     const labelCol = document.createElement("div");
     const itemLabel = document.createElement("div");
     itemLabel.className = "item-label";
@@ -364,273 +352,747 @@ function render() {
       labelCol.appendChild(pc);
     }
 
-    // Col 2: Quantity
     const qtyCol = document.createElement("div");
     const qtyInput = document.createElement("input");
-    qtyInput.type = "number";
-    qtyInput.min = "0";
-    qtyInput.step = "1";
-    qtyInput.value = "0";
-    qtyInput.dataset.k = k;
+    qtyInput.type = "number"; qtyInput.min = "0"; qtyInput.step = "1";
+    qtyInput.value = "0"; qtyInput.dataset.k = k;
     qtyInput.className = "package-qty";
     qtyCol.appendChild(qtyInput);
 
-    // Col 3: Unit price
     const priceCol = document.createElement("div");
     priceCol.className = "unit-price";
     priceCol.innerHTML = `₱&nbsp;${money(price)}`;
 
-    // Col 4: Subtotal
     const subCol = document.createElement("div");
     subCol.className = "subtotal-val";
     subCol.innerHTML = `₱&nbsp;<span id="sub_${k}">0.00</span>`;
 
-    row.appendChild(labelCol);
-    row.appendChild(qtyCol);
-    row.appendChild(priceCol);
-    row.appendChild(subCol);
+    row.appendChild(labelCol); row.appendChild(qtyCol);
+    row.appendChild(priceCol); row.appendChild(subCol);
     wrap.appendChild(row);
 
     qtyInput.addEventListener("input", () => {
       const q = Math.max(0, parseInt(qtyInput.value) || 0);
       if (k === "bridal_gown") buildGownPickers("bgPickers", q, BG_CATS, "Bridal Gown");
       if (k === "mother")      buildGownPickers("mgPickers", q, MG_CATS, "Mother's Gown");
-      calc();
+      updateGrandTotal();
     });
   });
 
-  calc();
+  updateGrandTotal();
 }
 
-/* ══════════════════════════════════════════════
-   ADD-ON ROWS
-══════════════════════════════════════════════ */
+function buildGownPickers(containerId, qty, allowedCats, labelPrefix) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = "";
+  if (qty <= 0) return;
 
+  for (let i = 0; i < qty; i++) {
+    const set = document.createElement("div");
+    set.className = "gown-picker-set";
 
+    const label = document.createElement("div");
+    label.className = "gown-picker-label";
+    label.textContent = qty === 1 ? `${labelPrefix} Item Code` : `${labelPrefix} #${i+1} Item Code`;
+    set.appendChild(label);
+
+    const row = document.createElement("div");
+    row.className = "gown-picker-row";
+
+    const catSel = document.createElement("select");
+    catSel.className = "gown-cat-sel";
+    const defOpt = document.createElement("option");
+    defOpt.value = ""; defOpt.textContent = "— Category —";
+    catSel.appendChild(defOpt);
+    allowedCats.forEach(cat => {
+      const o = document.createElement("option");
+      o.value = cat; o.textContent = cat;
+      catSel.appendChild(o);
+    });
+
+    const itemWrap = document.createElement("div");
+    const itemSearch = createSearchSelectInline(allowedCats, catSel, () => updateGrandTotal());
+    itemWrap.appendChild(itemSearch.el);
+
+    catSel.addEventListener("change", () => {
+      const cat = catSel.value;
+      itemSearch.setOptions(cat && sheetData[cat] ? sheetData[cat].map(r => r.code) : []);
+      updateGrandTotal();
+    });
+
+    row.appendChild(catSel);
+    row.appendChild(itemWrap);
+    set.appendChild(row);
+    container.appendChild(set);
+  }
+}
+
+function createSearchSelectInline(allowedCats, catSel, onChange) {
+  const wrap = document.createElement("div");
+  wrap.className = "search-container";
+  const input = document.createElement("input");
+  input.type = "text"; input.className = "search-input gown-item-sel";
+  input.placeholder = "— Item Code —"; input.autocomplete = "off";
+  const drop = document.createElement("div");
+  drop.className = "search-dropdown";
+  wrap.appendChild(input); wrap.appendChild(drop);
+
+  let selected = "", allOpts = [];
+
+  function buildList(filter) {
+    drop.innerHTML = "";
+    const lower = filter.toLowerCase();
+    const filtered = allOpts.filter(o => o.toLowerCase().includes(lower));
+    if (!filtered.length) {
+      drop.innerHTML = '<div class="dropdown-item no-results">No results</div>';
+    } else {
+      filtered.slice(0, 200).forEach(o => {
+        const d = document.createElement("div");
+        d.className = "dropdown-item";
+        d.textContent = o;
+        d.addEventListener("mousedown", e => {
+          e.preventDefault();
+          selected = o; input.value = o;
+          drop.classList.remove("open");
+          onChange();
+        });
+        drop.appendChild(d);
+      });
+    }
+  }
+
+  input.addEventListener("focus", () => { buildList(input.value); drop.classList.add("open"); });
+  input.addEventListener("input", () => { selected = ""; buildList(input.value); drop.classList.add("open"); onChange(); });
+  input.addEventListener("blur",  () => {
+    setTimeout(() => { drop.classList.remove("open"); if (input.value !== selected) input.value = selected; }, 150);
+  });
+
+  return {
+    el: wrap,
+    getValue: () => selected,
+    setValue: (v) => { selected = v; input.value = v; },
+    setOptions: (opts) => { allOpts = [...opts]; selected = ""; input.value = ""; }
+  };
+}
+
+/* Add-on rows */
 function addAddonRow() {
   const row = document.createElement("div");
   row.className = "addon-row";
 
-  // Col 1: Category
   const catSel = document.createElement("select");
   catSel.className = "addon-cat";
   const defOpt = document.createElement("option");
   defOpt.value = ""; defOpt.textContent = "— Category —";
   catSel.appendChild(defOpt);
-  for (const cat of ADDON_CATS) {
+  PKG_ADDON_CATS.forEach(cat => {
     const o = document.createElement("option");
     o.value = cat; o.textContent = cat;
     catSel.appendChild(o);
-  }
+  });
 
-  // Col 2: Item code searchable
   const regularSpan = document.createElement("div");
   regularSpan.className = "addon-regular-val";
   regularSpan.textContent = "—";
 
-  // Col 3: Price type selector (shown/hidden based on available prices)
   const priceTypeSel = document.createElement("select");
   priceTypeSel.className = "addon-price-type";
   priceTypeSel.style.display = "none";
-  const ptDefault = document.createElement("option");
-  ptDefault.value = "rental"; ptDefault.textContent = "Rental";
-  priceTypeSel.appendChild(ptDefault);
+
+  function applySelectedPrice() {
+    const found = row._foundItem;
+    if (!found) { row._activeRate = 0; regularSpan.textContent = "—"; updateGrandTotal(); return; }
+    const type  = priceTypeSel.value;
+    const price = (type === "firstuser" && found.firstUserPrice != null)
+      ? found.firstUserPrice : (found.rentalRate ?? 0);
+    row._activeRate = price;
+    regularSpan.textContent = price ? `₱ ${money(price)}` : "—";
+    updateGrandTotal();
+  }
 
   function updatePriceType() {
     const found = row._foundItem;
     if (!found) { priceTypeSel.style.display = "none"; return; }
-
-    const hasRental    = found.rentalRate != null;
-    const hasFirstUser = found.firstUser  != null;
-
-    // Rebuild options based on what's available
+    const hasR = found.rentalRate != null;
+    const hasF = found.firstUserPrice != null;
     priceTypeSel.innerHTML = "";
-    if (hasRental) {
-      const o = document.createElement("option");
-      o.value = "rental"; o.textContent = "Rental Rate";
-      priceTypeSel.appendChild(o);
-    }
-    if (hasFirstUser) {
-      const o = document.createElement("option");
-      o.value = "firstuser"; o.textContent = "First User";
-      priceTypeSel.appendChild(o);
-    }
-
-    // Only show the selector if both options exist
-    priceTypeSel.style.display = (hasRental && hasFirstUser) ? "" : "none";
+    if (hasR) { const o = document.createElement("option"); o.value = "rental"; o.textContent = "Rental Rate"; priceTypeSel.appendChild(o); }
+    if (hasF) { const o = document.createElement("option"); o.value = "firstuser"; o.textContent = "First User"; priceTypeSel.appendChild(o); }
+    priceTypeSel.style.display = (hasR && hasF) ? "" : "none";
     applySelectedPrice();
-  }
-
-  function applySelectedPrice() {
-    const found = row._foundItem;
-    if (!found) { row._activeRate = 0; regularSpan.textContent = "—"; calc(); return; }
-    const type = priceTypeSel.value;
-    const price = (type === "firstuser" && found.firstUser != null)
-      ? found.firstUser
-      : (found.rentalRate ?? 0);
-    row._activeRate = price;
-    regularSpan.textContent = price ? "₱ " + money(price) : "—";
-    calc();
   }
 
   priceTypeSel.addEventListener("change", applySelectedPrice);
 
-  const itemSearch = createSearchSelect({
-    placeholder: "— Item Code —",
-    options: [],
-    onSelect: (code) => {
-      const cat = catSel.value;
-      const found = (sheetData[cat] || []).find(i => i.code === code);
-      row._foundItem = found || null;
-      updatePriceType();
+  const itemInput = document.createElement("input");
+  itemInput.type = "text"; itemInput.className = "search-input addon-item-input";
+  itemInput.placeholder = "— Item Code —"; itemInput.autocomplete = "off";
+  const itemDrop = document.createElement("div");
+  itemDrop.className = "search-dropdown";
+  const itemWrap = document.createElement("div");
+  itemWrap.className = "search-container";
+  itemWrap.appendChild(itemInput); itemWrap.appendChild(itemDrop);
+
+  let itemSelected = "", itemAllOpts = [];
+
+  function buildItemList(filter) {
+    itemDrop.innerHTML = "";
+    const lower = filter.toLowerCase();
+    const filtered = itemAllOpts.filter(o => o.toLowerCase().includes(lower));
+    if (!filtered.length) {
+      itemDrop.innerHTML = '<div class="dropdown-item no-results">No results</div>';
+    } else {
+      filtered.slice(0, 200).forEach(o => {
+        const d = document.createElement("div");
+        d.className = "dropdown-item"; d.textContent = o;
+        d.addEventListener("mousedown", e => {
+          e.preventDefault();
+          itemSelected = o; itemInput.value = o;
+          itemDrop.classList.remove("open");
+          const cat  = catSel.value;
+          const found = (sheetData[cat] || []).find(i => i.code === o);
+          row._foundItem = found || null;
+          updatePriceType();
+        });
+        itemDrop.appendChild(d);
+      });
     }
+  }
+
+  itemInput.addEventListener("focus", () => { buildItemList(itemInput.value); itemDrop.classList.add("open"); });
+  itemInput.addEventListener("input", () => { itemSelected = ""; buildItemList(itemInput.value); itemDrop.classList.add("open"); });
+  itemInput.addEventListener("blur",  () => {
+    setTimeout(() => { itemDrop.classList.remove("open"); if (itemInput.value !== itemSelected) itemInput.value = itemSelected; }, 150);
   });
 
   catSel.addEventListener("change", () => {
     const cat = catSel.value;
-    itemSearch.setOptions(cat && sheetData[cat] ? sheetData[cat].map(r => r.code) : []);
-    row._foundItem = null;
-    row._activeRate = 0;
+    itemAllOpts = cat && sheetData[cat] ? sheetData[cat].map(r => r.code) : [];
+    itemSelected = ""; itemInput.value = "";
+    row._foundItem = null; row._activeRate = 0;
     priceTypeSel.style.display = "none";
     regularSpan.textContent = "—";
-    calc();
+    updateGrandTotal();
   });
 
-  // Col 4: Quantity
   const qtyInput = document.createElement("input");
-  qtyInput.type = "number";
-  qtyInput.min = "1";
-  qtyInput.step = "1";
-  qtyInput.value = "1";
+  qtyInput.type = "number"; qtyInput.min = "1"; qtyInput.step = "1"; qtyInput.value = "1";
   qtyInput.className = "addon-qty";
-  qtyInput.addEventListener("input", calc);
+  qtyInput.addEventListener("input", updateGrandTotal);
 
-  // Col 6: Charged
   const chargedSpan = document.createElement("div");
   chargedSpan.className = "addon-subtotal-val";
   chargedSpan.textContent = "₱ 0.00";
 
-  // Col 7: Remove
   const removeBtn = document.createElement("button");
-  removeBtn.className = "btn-remove";
-  removeBtn.textContent = "×";
-  removeBtn.addEventListener("click", () => { row.remove(); calc(); });
+  removeBtn.className = "btn-remove"; removeBtn.textContent = "×";
+  removeBtn.addEventListener("click", () => { row.remove(); updateGrandTotal(); });
 
   row._foundItem    = null;
   row._activeRate   = 0;
-  row._itemSearch   = itemSearch;
-  row._qtyInput     = qtyInput;
   row._chargedSpan  = chargedSpan;
+  row._qtyInput     = qtyInput;
   row._priceTypeSel = priceTypeSel;
   row._updatePriceType = updatePriceType;
+  row._getItemCode  = () => itemSelected;
+  row._getCat       = () => catSel.value;
 
-  row.appendChild(catSel);
-  row.appendChild(itemSearch);
-  row.appendChild(priceTypeSel);
-  row.appendChild(qtyInput);
-  row.appendChild(regularSpan);
-  row.appendChild(chargedSpan);
-  row.appendChild(removeBtn);
-
+  row.appendChild(catSel); row.appendChild(itemWrap); row.appendChild(priceTypeSel);
+  row.appendChild(qtyInput); row.appendChild(regularSpan);
+  row.appendChild(chargedSpan); row.appendChild(removeBtn);
   document.getElementById("addonRows").appendChild(row);
-  calc();
+  updateGrandTotal();
+}
+
+document.getElementById("addAddonBtn").addEventListener("click", addAddonRow);
+document.getElementById("packageType").addEventListener("change", renderPackage);
+document.getElementById("packageColor").addEventListener("change", updateGrandTotal);
+
+/* ══════════════════════════════════════════════
+   RENTAL CALCULATOR
+══════════════════════════════════════════════ */
+function buildRentalTrackedPanel() {
+  const trackedCats = [...new Set(
+    rentalMaster.filter(i => i.type === "TRACKED").map(i => i.category)
+  )].sort();
+
+  const catSel = document.getElementById("r-t-category");
+  trackedCats.forEach(c => {
+    const o = document.createElement("option"); o.value = c; o.textContent = c;
+    catSel.appendChild(o);
+  });
+
+  let selectedItem = null;
+  const searchEl   = document.getElementById("r-t-search");
+  const dropEl     = document.getElementById("r-t-dropdown");
+  const priceSelEl = document.getElementById("r-t-price-selector");
+  const rentalDisp = document.getElementById("r-t-rental-display");
+  const fuDisp     = document.getElementById("r-t-fu-display");
+  const ratePreview= document.getElementById("r-t-rate-preview");
+  const rateEl     = document.getElementById("r-t-rate-val");
+  const addBtn     = document.getElementById("r-t-add-btn");
+  const errorEl    = document.getElementById("r-t-error");
+
+  function getAvailableItems(cat) {
+    const used = new Set(rentalCart.filter(i => i.type === "TRACKED" && i.category === cat).map(i => i.name));
+    return rentalMaster.filter(i => i.type === "TRACKED" && i.category === cat && !used.has(i.name));
+  }
+
+  function renderDropdown(items) {
+    dropEl.innerHTML = items.length
+      ? items.slice(0, 150).map(i => `<div class="dropdown-item" data-name="${esc(i.name)}">${esc(i.name)}</div>`).join("")
+      : '<div class="dropdown-item no-results">No items found</div>';
+    dropEl.classList.add("open");
+  }
+
+  function selectItem(item) {
+    selectedItem = item;
+    searchEl.value = item.name;
+    dropEl.classList.remove("open");
+    errorEl.classList.remove("visible");
+    const hasR = item.rentalRate != null;
+    const hasF = item.firstUserPrice != null && item.firstUserPrice > 0;
+    if (hasF) {
+      ratePreview.style.display = "none"; priceSelEl.style.display = "block";
+      rentalDisp.textContent = hasR ? `₱${money(item.rentalRate)}` : "No rate";
+      fuDisp.textContent = `₱${money(item.firstUserPrice)}`;
+      document.querySelector('input[name="r-t-price-type"][value="rental"]').checked = true;
+      addBtn.disabled = !hasR;
+    } else {
+      ratePreview.style.display = ""; priceSelEl.style.display = "none";
+      rateEl.textContent = hasR ? `₱${money(item.rentalRate)}` : "No rate set";
+      rateEl.classList.toggle("empty", !hasR);
+      addBtn.disabled = !hasR;
+    }
+  }
+
+  function resetTracked() {
+    selectedItem = null; searchEl.value = ""; searchEl.disabled = true;
+    catSel.value = ""; ratePreview.style.display = ""; priceSelEl.style.display = "none";
+    rateEl.textContent = "Select an item"; rateEl.classList.add("empty");
+    addBtn.disabled = true; dropEl.classList.remove("open");
+  }
+
+  catSel.addEventListener("change", () => {
+    selectedItem = null; searchEl.value = "";
+    searchEl.disabled = !catSel.value;
+    ratePreview.style.display = ""; priceSelEl.style.display = "none";
+    rateEl.textContent = "Select an item"; rateEl.classList.add("empty");
+    addBtn.disabled = true; dropEl.classList.remove("open");
+  });
+
+  searchEl.addEventListener("input", () => {
+    selectedItem = null; addBtn.disabled = true;
+    rateEl.textContent = "Select an item"; rateEl.classList.add("empty");
+    priceSelEl.style.display = "none"; ratePreview.style.display = "";
+    const cat = catSel.value; if (!cat) return;
+    const q = searchEl.value.trim().toLowerCase();
+    const available = getAvailableItems(cat);
+    renderDropdown(q ? available.filter(i => i.name.toLowerCase().includes(q)) : available);
+  });
+
+  searchEl.addEventListener("focus", () => {
+    const cat = catSel.value; if (!cat) return;
+    const q = searchEl.value.trim().toLowerCase();
+    renderDropdown(q ? getAvailableItems(cat).filter(i => i.name.toLowerCase().includes(q)) : getAvailableItems(cat));
+  });
+
+  dropEl.addEventListener("mousedown", e => {
+    const itEl = e.target.closest(".dropdown-item");
+    if (!itEl || itEl.classList.contains("no-results")) return;
+    const item = rentalMaster.find(i => i.type === "TRACKED" && i.category === catSel.value && i.name === itEl.dataset.name);
+    if (item) selectItem(item);
+  });
+
+  document.addEventListener("click", e => {
+    if (!document.getElementById("r-t-search-wrap")?.contains(e.target)) dropEl.classList.remove("open");
+  });
+
+  addBtn.addEventListener("click", () => {
+    if (!selectedItem) return;
+    if (rentalCart.some(i => i.type === "TRACKED" && i.category === selectedItem.category && i.name === selectedItem.name)) {
+      errorEl.textContent = `${selectedItem.name} is already in the list.`;
+      errorEl.classList.add("visible"); return;
+    }
+    const hasF = selectedItem.firstUserPrice != null && selectedItem.firstUserPrice > 0;
+    let chosenRate, pricingLabel;
+    if (hasF) {
+      const sel = document.querySelector('input[name="r-t-price-type"]:checked');
+      if (sel?.value === "firstUser") { chosenRate = selectedItem.firstUserPrice; pricingLabel = "First User"; }
+      else { chosenRate = selectedItem.rentalRate; pricingLabel = "Rental Rate"; }
+    } else { chosenRate = selectedItem.rentalRate; pricingLabel = "Rental Rate"; }
+    rentalCart.push({ id: uid(), category: selectedItem.category, name: selectedItem.name, rentalRate: chosenRate, pricingLabel, quantity: 1, amount: chosenRate, type: "TRACKED" });
+    resetTracked();
+    renderRentalItems();
+  });
+}
+
+function buildRentalQtyPanel() {
+  const qtyCats = [...new Set(rentalMaster.filter(i => i.type === "QUANTITY").map(i => i.category))];
+  const catSel  = document.getElementById("r-q-category");
+  qtyCats.forEach(c => { const o = document.createElement("option"); o.value = c; o.textContent = c; catSel.appendChild(o); });
+
+  const sizeEl = document.getElementById("r-q-size");
+  const qtyEl  = document.getElementById("r-q-qty");
+  const rateEl = document.getElementById("r-q-rate-val");
+  const addBtn = document.getElementById("r-q-add-btn");
+  const errEl  = document.getElementById("r-q-error");
+  let selectedQtyItem = null;
+
+  catSel.addEventListener("change", () => {
+    const cat = catSel.value;
+    sizeEl.innerHTML = '<option value="">— Select —</option>';
+    sizeEl.disabled = !cat; qtyEl.disabled = true; addBtn.disabled = true;
+    selectedQtyItem = null; rateEl.textContent = "Select an item"; rateEl.classList.add("empty");
+    if (!cat) return;
+    rentalMaster.filter(i => i.type === "QUANTITY" && i.category === cat).forEach(i => {
+      const opt = document.createElement("option"); opt.value = i.name; opt.textContent = i.name;
+      sizeEl.appendChild(opt);
+    });
+    sizeEl.disabled = false;
+  });
+
+  sizeEl.addEventListener("change", () => {
+    const name = sizeEl.value;
+    if (!name) { selectedQtyItem = null; rateEl.textContent = "Select an item"; rateEl.classList.add("empty"); qtyEl.disabled = true; addBtn.disabled = true; return; }
+    selectedQtyItem = rentalMaster.find(i => i.type === "QUANTITY" && i.category === catSel.value && i.name === name);
+    if (selectedQtyItem) {
+      const rate = selectedQtyItem.rentalRate;
+      rateEl.textContent = rate != null ? `₱${money(rate)}` : "No rate set";
+      rateEl.classList.toggle("empty", rate == null);
+      qtyEl.disabled = rate == null; addBtn.disabled = rate == null;
+      if (rate != null) qtyEl.focus();
+    }
+  });
+
+  addBtn.addEventListener("click", () => {
+    if (!selectedQtyItem) return;
+    const qty = parseInt(qtyEl.value) || 1;
+    if (qty < 1) { errEl.textContent = "Quantity must be at least 1."; errEl.classList.add("visible"); return; }
+    const { category: cat, name, rentalRate: rate } = selectedQtyItem;
+    const existing = rentalCart.find(i => i.type === "QUANTITY" && i.category === cat && i.name === name);
+    if (existing) { existing.quantity += qty; existing.amount = existing.rentalRate * existing.quantity; }
+    else { rentalCart.push({ id: uid(), category: cat, name, rentalRate: rate, pricingLabel: "Rental Rate", quantity: qty, amount: rate * qty, type: "QUANTITY" }); }
+    sizeEl.value = ""; qtyEl.value = 1; qtyEl.disabled = true; addBtn.disabled = true;
+    selectedQtyItem = null; rateEl.textContent = "Select an item"; rateEl.classList.add("empty");
+    errEl.classList.remove("visible");
+    renderRentalItems();
+  });
+}
+
+function renderRentalItems() {
+  const list    = document.getElementById("rental-items-list");
+  const emptyEl = document.getElementById("rental-items-empty");
+  const badge   = document.getElementById("rental-badge");
+
+  if (!rentalCart.length) {
+    list.innerHTML = ""; emptyEl.style.display = "block";
+    badge.textContent = "0"; updateGrandTotal(); return;
+  }
+
+  emptyEl.style.display = "none";
+  badge.textContent = rentalCart.length;
+
+  list.innerHTML = rentalCart.map(item => {
+    const label = item.type === "QUANTITY" ? `${item.name} ×${item.quantity}` : item.name;
+    const meta  = item.type === "QUANTITY"
+      ? `₱${money(item.rentalRate)} × ${item.quantity}`
+      : (item.pricingLabel || "Rental Rate");
+    const fuTag = item.pricingLabel === "First User" ? '<span class="fu-tag">1st User</span>' : "";
+    return `<div class="rental-item" data-id="${item.id}">
+      <div class="item-info">
+        <div class="item-name">${esc(label)} ${fuTag}</div>
+        <div class="item-meta">${esc(meta)}</div>
+      </div>
+      <div class="item-amount">₱${money(item.amount)}</div>
+      <button class="btn-remove" data-id="${item.id}">×</button>
+    </div>`;
+  }).join("");
+
+  list.querySelectorAll(".btn-remove").forEach(btn => {
+    btn.addEventListener("click", () => {
+      rentalCart = rentalCart.filter(i => i.id !== btn.dataset.id);
+      renderRentalItems();
+    });
+  });
+
+  updateGrandTotal();
 }
 
 /* ══════════════════════════════════════════════
-   CALC
+   RETAIL CALCULATOR
 ══════════════════════════════════════════════ */
-function calc() {
+function buildRetailPanel() {
+  const catSel = document.getElementById("ret-category");
+  const loadedCats = new Set(retailItems.map(i => i.category));
+  RETAIL_SHEETS.forEach(({ label }) => {
+    if (!loadedCats.has(label)) return;
+    const opt = document.createElement("option"); opt.value = label; opt.textContent = label;
+    catSel.appendChild(opt);
+  });
+
+  let selectedRetailItem = null;
+  const searchEl = document.getElementById("ret-search");
+  const dropEl   = document.getElementById("ret-dropdown");
+  const priceEl  = document.getElementById("ret-price-val");
+  const addBtn   = document.getElementById("ret-add-btn");
+  const errorEl  = document.getElementById("ret-error");
+
+  function getAvailableRetail(cat) {
+    const inCart = new Set(retailCart.map(c => c.name + "|" + c.category));
+    return retailItems.filter(i => i.category === cat && !inCart.has(i.name + "|" + i.category));
+  }
+
+  function renderRetailDrop(items) {
+    dropEl.innerHTML = items.length
+      ? items.slice(0, 200).map(i => `<div class="dropdown-item" data-name="${esc(i.name)}">${esc(i.name)} — ₱${money(i.retailPrice)}</div>`).join("")
+      : '<div class="dropdown-item no-results">No items found</div>';
+    dropEl.classList.add("open");
+  }
+
+  catSel.addEventListener("change", () => {
+    selectedRetailItem = null; searchEl.value = "";
+    searchEl.disabled = !catSel.value;
+    priceEl.textContent = "Select an item"; priceEl.classList.add("empty");
+    addBtn.disabled = true; dropEl.classList.remove("open");
+  });
+
+  searchEl.addEventListener("input", () => {
+    selectedRetailItem = null; addBtn.disabled = true;
+    const cat = catSel.value; if (!cat) return;
+    const q = searchEl.value.trim().toLowerCase();
+    const avail = getAvailableRetail(cat);
+    renderRetailDrop(q ? avail.filter(i => i.name.toLowerCase().includes(q)) : avail);
+  });
+
+  searchEl.addEventListener("focus", () => {
+    const cat = catSel.value; if (!cat) return;
+    const q = searchEl.value.trim().toLowerCase();
+    const avail = getAvailableRetail(cat);
+    renderRetailDrop(q ? avail.filter(i => i.name.toLowerCase().includes(q)) : avail);
+  });
+
+  dropEl.addEventListener("mousedown", e => {
+    const itEl = e.target.closest(".dropdown-item");
+    if (!itEl || itEl.classList.contains("no-results")) return;
+    const item = retailItems.find(i => i.name === itEl.dataset.name && i.category === catSel.value);
+    if (item) {
+      selectedRetailItem = item; searchEl.value = item.name;
+      dropEl.classList.remove("open");
+      priceEl.textContent = `₱${money(item.retailPrice)}`; priceEl.classList.remove("empty");
+      addBtn.disabled = false;
+    }
+  });
+
+  document.addEventListener("click", e => {
+    if (!document.getElementById("ret-search-wrap")?.contains(e.target)) dropEl.classList.remove("open");
+  });
+
+  addBtn.addEventListener("click", () => {
+    if (!selectedRetailItem) return;
+    if (retailCart.find(c => c.name === selectedRetailItem.name && c.category === selectedRetailItem.category)) {
+      errorEl.textContent = `"${selectedRetailItem.name}" is already in your list.`;
+      errorEl.classList.add("visible"); return;
+    }
+    retailCart.push({ ...selectedRetailItem });
+    selectedRetailItem = null; searchEl.value = ""; searchEl.disabled = true;
+    catSel.value = ""; priceEl.textContent = "Select an item"; priceEl.classList.add("empty");
+    addBtn.disabled = true; errorEl.classList.remove("visible");
+    renderRetailItems();
+  });
+}
+
+function renderRetailItems() {
+  const list    = document.getElementById("retail-items-list");
+  const emptyEl = document.getElementById("retail-items-empty");
+  const badge   = document.getElementById("retail-badge");
+
+  if (!retailCart.length) {
+    list.innerHTML = ""; emptyEl.style.display = "block";
+    badge.textContent = "0"; updateGrandTotal(); return;
+  }
+
+  emptyEl.style.display = "none";
+  badge.textContent = retailCart.length;
+
+  list.innerHTML = retailCart.map(item => `
+    <div class="rental-item">
+      <div class="item-info">
+        <div class="item-name">${esc(item.name)}</div>
+        <div class="item-meta">${esc(item.category)}</div>
+      </div>
+      <div class="item-amount">₱${money(item.retailPrice)}</div>
+      <button class="btn-remove" data-name="${esc(item.name)}" data-cat="${esc(item.category)}">×</button>
+    </div>`).join("");
+
+  list.querySelectorAll(".btn-remove").forEach(btn => {
+    btn.addEventListener("click", () => {
+      retailCart = retailCart.filter(c => !(c.name === btn.dataset.name && c.category === btn.dataset.cat));
+      renderRetailItems();
+    });
+  });
+
+  updateGrandTotal();
+}
+
+/* ══════════════════════════════════════════════
+   GRAND TOTAL & SUMMARY BUILDER
+══════════════════════════════════════════════ */
+function updateGrandTotal() {
   if (!dataReady) return;
 
-  const pkg = document.getElementById("packageType").value;
-  const packageColor = document.getElementById("packageColor").value;
+  const pkg   = document.getElementById("packageType").value;
+  const color = document.getElementById("packageColor").value;
 
-  let packTotal = 0;
-  let addonTotal = 0;
-  let anySelected = false;
-  const pkgLines = [];
-  const addonLines = [];
+  /* ── Package calculation ── */
+  let packTotal = 0, addonTotal = 0;
+  const pkgLines = [], addonLines = [];
+  let pkgHasItems = false;
 
-  // Package items
   document.querySelectorAll(".package-qty").forEach(input => {
-    const k = input.dataset.k;
+    const k   = input.dataset.k;
     const qty = Math.max(0, parseInt(input.value) || 0);
     const [name, price] = packagePrices[pkg][k];
     const sub = qty * price;
     packTotal += sub;
-
     const subEl = document.getElementById("sub_" + k);
     if (subEl) subEl.textContent = money(sub);
 
     if (qty > 0) {
-      anySelected = true;
+      pkgHasItems = true;
       const codes = [];
       if (k === "bridal_gown") {
         document.querySelectorAll("#bgPickers .gown-picker-set").forEach(set => {
           const cat  = set.querySelector(".gown-cat-sel")?.value || "";
-          const item = set.querySelector(".gown-item-sel")?.getValue?.() || "";
+          const item = set.querySelector(".gown-item-sel")?.value || "";
           codes.push((cat && item) ? `${cat}/${item}` : (item || ""));
         });
       }
       if (k === "mother") {
         document.querySelectorAll("#mgPickers .gown-picker-set").forEach(set => {
           const cat  = set.querySelector(".gown-cat-sel")?.value || "";
-          const item = set.querySelector(".gown-item-sel")?.getValue?.() || "";
+          const item = set.querySelector(".gown-item-sel")?.value || "";
           codes.push((cat && item) ? `${cat}/${item}` : (item || ""));
         });
       }
-      let line = name;
-      if (codes.length) line += ` | ${codes.map((c,i) => c ? `#${i+1}: ${c}` : `#${i+1}: (not selected)`).join(", ")}`;
-      line += ` x ${qty} @ ₱${money(price)} = ₱${money(sub)}`;
+      let line = `  ${name.padEnd(22)}x${qty}   ₱${money(price)}`;
+      if (codes.length) line += `\n    Item Code: ${codes.map((c,i) => c ? `#${i+1}: ${c}` : `#${i+1}: (not selected)`).join(", ")}`;
       pkgLines.push(line);
     }
   });
 
-  // Add-on items
   document.querySelectorAll(".addon-row").forEach(row => {
     const qty      = Math.max(0, parseInt(row._qtyInput?.value) || 0);
     const rate     = row._activeRate || 0;
-    const cat      = row.querySelector(".addon-cat")?.value || "";
-    const itemCode = row._itemSearch?.getValue?.() || "";
+    const cat      = row._getCat?.() || "";
+    const itemCode = row._getItemCode?.() || "";
     const charged  = rate * 0.8;
     const sub      = qty * charged;
     addonTotal += sub;
-
     if (row._chargedSpan) row._chargedSpan.textContent = "₱ " + money(sub);
-
     if (qty > 0 && rate > 0 && itemCode) {
-      anySelected = true;
-      addonLines.push(
-        `${cat ? cat + "/" : ""}${itemCode} x ${qty} | Regular: ₱${money(rate)} | Less 20%: ₱${money(charged)} | Subtotal: ₱${money(sub)}`
-      );
+      addonLines.push(`  ${(cat ? cat + "/" + itemCode : itemCode).padEnd(22)}x${qty}   ₱${money(charged)} (₱${money(rate)} less 20%)`);
     }
   });
 
   document.getElementById("packageSubtotal").textContent = money(packTotal);
   document.getElementById("addonSubtotal").textContent   = money(addonTotal);
-  document.getElementById("grandTotal").textContent      = money(packTotal + addonTotal);
+  document.getElementById("packageTotal").textContent    = money(packTotal + addonTotal);
 
-  // Build summary — blank if nothing selected
-  if (!anySelected && !packageColor) {
+  /* ── Rental calculation ── */
+  let rentalTotal = 0;
+  rentalCart.forEach(item => { rentalTotal += item.amount || 0; });
+  document.getElementById("rentalTotal").textContent = money(rentalTotal);
+
+  /* ── Retail calculation ── */
+  let retailTotal = 0;
+  retailCart.forEach(item => { retailTotal += item.retailPrice || 0; });
+  document.getElementById("retailTotal").textContent = money(retailTotal);
+
+  /* ── Grand total ── */
+  const grandTotal = packTotal + addonTotal + rentalTotal + retailTotal;
+  document.getElementById("grandTotalAll").textContent = money(grandTotal);
+  document.getElementById("payGrandTotal").textContent = money(grandTotal);
+
+  /* ── Payment summary ── */
+  const amountPaid = parseFloat(document.getElementById("amountPaid").value) || 0;
+  const discount   = parseFloat(document.getElementById("discountAmount").value) || 0;
+  const remaining  = grandTotal - amountPaid - discount;
+  document.getElementById("remainingBalance").textContent = money(Math.max(0, remaining));
+
+  /* ── Build summary ── */
+  const anySelected = pkgHasItems || rentalCart.length > 0 || retailCart.length > 0;
+  if (!anySelected && !color) {
     window.latestSubmissionText = "";
     broadcastToJotform();
     return;
   }
 
   const lines = [];
-  lines.push("PACKAGE: " + packageNames[pkg]);
-  if (packageColor) lines.push("PACKAGE COLOR: " + packageColor);
-  lines.push("");
-  lines.push(...pkgLines);
-  if (addonLines.length) {
+
+  // Package section
+  if (pkgHasItems || color) {
+    lines.push("WEDDING ENTOURAGE PACKAGE");
+    lines.push(`  Package: ${packageNames[pkg]}`);
+    if (color) lines.push(`  Color: ${color}`);
     lines.push("");
-    lines.push("ADD-ONS:");
-    lines.push(...addonLines);
+    lines.push(...pkgLines);
+    if (addonLines.length) {
+      lines.push("");
+      lines.push("  Add-On Items (20% off):");
+      lines.push(...addonLines);
+    }
+    lines.push("");
+    lines.push(`  Package Subtotal:      ₱${money(packTotal)}`);
+    if (addonLines.length) lines.push(`  Add-On Subtotal:       ₱${money(addonTotal)}`);
+    lines.push(`  PACKAGE TOTAL:         ₱${money(packTotal + addonTotal)}`);
   }
-  lines.push("");
-  lines.push("PACKAGE SUBTOTAL: ₱" + money(packTotal));
-  lines.push("ADD-ON SUBTOTAL: ₱"  + money(addonTotal));
-  lines.push("GRAND TOTAL: ₱"      + money(packTotal + addonTotal));
+
+  // Rental section
+  if (rentalCart.length) {
+    if (lines.length) lines.push("", "------------------------------------------", "");
+    lines.push("RENTAL ITEMS");
+    lines.push("");
+    rentalCart.forEach(item => {
+      if (item.type === "QUANTITY") {
+        lines.push(`  ${item.name.padEnd(22)}x${item.quantity}   ₱${money(item.rentalRate)}`);
+      } else {
+        const fuTag = item.pricingLabel === "First User" ? " (First User)" : "";
+        lines.push(`  ${item.name.padEnd(22)}₱${money(item.amount)}${fuTag}`);
+      }
+    });
+    lines.push("");
+    lines.push(`  RENTAL TOTAL:          ₱${money(rentalTotal)}`);
+  }
+
+  // Retail section
+  if (retailCart.length) {
+    if (lines.length) lines.push("", "------------------------------------------", "");
+    lines.push("PURCHASED ITEMS");
+    lines.push("");
+    retailCart.forEach(item => {
+      lines.push(`  ${item.name.padEnd(22)}₱${money(item.retailPrice)}`);
+    });
+    lines.push("");
+    lines.push(`  PURCHASE TOTAL:        ₱${money(retailTotal)}`);
+  }
+
+  // Grand total
+  lines.push("", "------------------------------------------");
+  lines.push(`GRAND TOTAL:             ₱${money(grandTotal)}`);
+
+  // Payment summary
+  const amountPaid = parseFloat(document.getElementById("amountPaid").value) || 0;
+  const discount   = parseFloat(document.getElementById("discountAmount").value) || 0;
+  const remaining  = Math.max(0, grandTotal - amountPaid - discount);
+  if (amountPaid > 0 || discount > 0) {
+    lines.push("");
+    lines.push("PAYMENT SUMMARY");
+    if (amountPaid > 0) lines.push(`  Amount Paid:           ₱${money(amountPaid)}`);
+    if (discount > 0)   lines.push(`  Discount:              ₱${money(discount)}`);
+    lines.push(`  Remaining Balance:     ₱${money(remaining)}`);
+  }
 
   window.latestSubmissionText = lines.join("\n");
   broadcastToJotform();
@@ -641,143 +1103,227 @@ function calc() {
 ══════════════════════════════════════════════ */
 function broadcastToJotform() {
   const value = window.latestSubmissionText || "";
-  const totalText = document.getElementById("grandTotal")?.textContent || "0.00";
-  const totalNum = parseFloat(totalText.replace(/,/g, "")) || 0;
-
-  // Save to localStorage keyed by submission ID
-  if (window._jfSid) saveToLocalStorage(window._jfSid, value);
-
-  // Ping Apps Script with grand total
-  try {
-    const sid = getSessionId();
-    fetch(`${APPS_SCRIPT_URL}?action=set&type=package&load_id=${sid}&total=${totalNum.toFixed(2)}`).catch(() => {});
-  } catch(e) {}
-
-  // 1. Send full summary as widget value (so JotForm condition copies it to field 110)
   if (typeof JFCustomWidget !== "undefined") {
     try { JFCustomWidget.sendData({ value }); } catch(e) {}
   }
-
-  // 2. Direct DOM injection into parent JotForm fields
   try {
     if (window.parent && window.parent !== window) {
-      const summary = window.parent.document.getElementById("input_110");
-      if (summary) {
-        summary.value = value;
-        summary.dispatchEvent(new Event("input",  { bubbles: true }));
-        summary.dispatchEvent(new Event("change", { bubbles: true }));
-      }
+      window.parent.postMessage(JSON.stringify({ type: "widgetValue", value, valid: true }), "*");
     }
   } catch(e) {}
-
-  try {
-    if (window.parent && window.parent !== window) {
-      const totalField = window.parent.document.getElementById("input_141");
-      if (totalField) {
-        totalField.value = totalNum.toFixed(2);
-        totalField.dispatchEvent(new Event("input",  { bubbles: true }));
-        totalField.dispatchEvent(new Event("change", { bubbles: true }));
-        totalField.dispatchEvent(new Event("keyup",  { bubbles: true }));
-      }
-    }
-  } catch(e) {}
-
-  try {
-    if (window.parent && window.parent !== window) {
-      window.top.postMessage(JSON.stringify({ type: "widgetValue", valid: true, grandTotal: totalNum.toFixed(2), source: "package_calculator" }), "*");
-    }
-  } catch(e) {}
-}
-
-function getSubmissionId() {
-  // Extract submission ID from parent URL (jotform.com/edit/SUBMISSION_ID)
-  // or from the ready event's sid field
-  try {
-    const parentUrl = window.parent.location.href;
-    const m = parentUrl.match(/\/edit\/(\d+)/);
-    if (m) return m[1];
-  } catch(e) {}
-  // Fallback: try our own URL params
-  try {
-    const m = window.location.href.match(/[?&]sid=(\d+)/);
-    if (m) return m[1];
-  } catch(e) {}
-  return null;
 }
 
 function saveToLocalStorage(sid, text) {
   if (!sid || !text) return;
-  try { localStorage.setItem("jf_calc_" + sid, text); } catch(e) {}
+  try { localStorage.setItem("jf_combined_" + sid, text); } catch(e) {}
 }
 
 function loadFromLocalStorage(sid) {
   if (!sid) return null;
-  try { return localStorage.getItem("jf_calc_" + sid) || null; } catch(e) { return null; }
+  try { return localStorage.getItem("jf_combined_" + sid) || null; } catch(e) { return null; }
 }
 
+/* ══════════════════════════════════════════════
+   RESTORE FROM SUMMARY
+══════════════════════════════════════════════ */
+async function restoreFromSummary(text) {
+  if (!text || !text.trim()) return;
+  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").map(l => l.trim()).filter(Boolean);
+
+  let section = null;
+
+  for (const line of lines) {
+    if (line === "WEDDING ENTOURAGE PACKAGE") { section = "package"; continue; }
+    if (line === "RENTAL ITEMS")   { section = "rental"; continue; }
+    if (line === "PURCHASED ITEMS") { section = "retail"; continue; }
+    if (line.startsWith("--") || line.startsWith("GRAND TOTAL")) continue;
+
+    if (section === "package") {
+      // Package type
+      const pkgMatch = line.match(/^Package:\s*(.+)$/);
+      if (pkgMatch) {
+        const pkgName = pkgMatch[1].trim();
+        const pkgSel = document.getElementById("packageType");
+        for (const [val, name] of Object.entries(packageNames)) {
+          if (name === pkgName) { pkgSel.value = val; break; }
+        }
+        renderPackage(); continue;
+      }
+      // Color
+      const colorMatch = line.match(/^Color:\s*(.+)$/);
+      if (colorMatch) {
+        document.getElementById("packageColor").value = colorMatch[1].trim(); continue;
+      }
+      // Package item: "Bridesmaid              x1   ₱280.50"
+      const pkgItemMatch = line.match(/^(.+?)\s+x(\d+)\s+₱[\d,]+\.?\d*$/);
+      if (pkgItemMatch) {
+        const name = pkgItemMatch[1].trim();
+        const qty  = parseInt(pkgItemMatch[2]);
+        const pkg  = document.getElementById("packageType").value;
+        for (const k of pkgKeys) {
+          if (packagePrices[pkg][k][0] === name) {
+            const inp = document.querySelector(`.package-qty[data-k="${k}"]`);
+            if (inp) { inp.value = qty; inp.dispatchEvent(new Event("input")); }
+            break;
+          }
+        }
+        continue;
+      }
+      // Gown item code: "Item Code: #1: BGI/BGI001"
+      // (handled by qty dispatch above triggering picker rebuild — restore picker values separately)
+      const codeMatch = line.match(/^Item Code:\s*(.+)$/);
+      if (codeMatch) {
+        // Parse "#1: BGI/BGI001, #2: BGS/BGS002"
+        const pairs = [...codeMatch[1].matchAll(/#(\d+):\s*([^/,]+)\/([^,\s]+)/g)];
+        // Try bridal gown first then mother's gown
+        const tryPickers = (containerId) => {
+          const sets = document.querySelectorAll(`#${containerId} .gown-picker-set`);
+          pairs.forEach(m => {
+            const idx  = parseInt(m[1]) - 1;
+            const cat  = m[2].trim();
+            const code = m[3].trim();
+            const set  = sets[idx];
+            if (!set) return;
+            const catSel  = set.querySelector(".gown-cat-sel");
+            const itemInp = set.querySelector(".gown-item-sel");
+            if (catSel) {
+              catSel.value = cat;
+              if (sheetData[cat]) {
+                // populate options on the inline search
+                const opts = sheetData[cat].map(r => r.code);
+                // we stored the search component on the element for restore
+              }
+            }
+            if (itemInp) itemInp.value = code;
+          });
+        };
+        tryPickers("bgPickers");
+        tryPickers("mgPickers");
+        continue;
+      }
+      // Add-on: "BGI-ADD ON/BGI001   x1   ₱960.00 (₱1,200.00 less 20%)"
+      const addonMatch = line.match(/^([^x]+)\s+x(\d+)\s+₱/);
+      if (addonMatch && line.includes("less 20%")) {
+        // Add a new addon row and try to populate it
+        addAddonRow();
+        const rows = document.querySelectorAll(".addon-row");
+        const aRow = rows[rows.length - 1];
+        const fullCode = addonMatch[1].trim();
+        const slash = fullCode.indexOf("/");
+        if (slash > -1) {
+          const cat  = fullCode.substring(0, slash);
+          const code = fullCode.substring(slash + 1);
+          const catSel = aRow.querySelector(".addon-cat");
+          if (catSel) {
+            catSel.value = cat;
+            catSel.dispatchEvent(new Event("change"));
+            await new Promise(r => setTimeout(r, 0));
+          }
+          // Set item code via the input
+          const inp = aRow.querySelector(".addon-item-input");
+          if (inp) { inp.value = code; inp.dispatchEvent(new Event("input")); }
+          if (aRow._qtyInput) aRow._qtyInput.value = parseInt(addonMatch[2]) || 1;
+        }
+      }
+    }
+
+    if (section === "rental") {
+      // Tracked: "BGI-10002              ₱3,500.00"
+      // Quantity: "BOY ×2                 ₱700.00"
+      const qtyMatch = line.match(/^(.+?)\s+×(\d+)\s+₱[\d,]+\.?\d*$/);
+      if (qtyMatch) {
+        const name = qtyMatch[1].trim();
+        const qty  = parseInt(qtyMatch[2]);
+        const master = rentalMaster.find(i => i.type === "QUANTITY" && i.name === name);
+        if (master) {
+          const existing = rentalCart.find(i => i.type === "QUANTITY" && i.name === name);
+          if (existing) { existing.quantity += qty; existing.amount = existing.rentalRate * existing.quantity; }
+          else rentalCart.push({ id: uid(), category: master.category, name, rentalRate: master.rentalRate, pricingLabel: "Rental Rate", quantity: qty, amount: master.rentalRate * qty, type: "QUANTITY" });
+        }
+        continue;
+      }
+      const trackedMatch = line.match(/^(.+?)\s+₱[\d,]+\.?\d*(\s+\(First User\))?$/);
+      if (trackedMatch && !line.startsWith("RENTAL TOTAL")) {
+        const name = trackedMatch[1].trim();
+        const isFirstUser = !!trackedMatch[2];
+        const master = rentalMaster.find(i => i.type === "TRACKED" && i.name === name);
+        if (master) {
+          const rate  = isFirstUser ? (master.firstUserPrice ?? master.rentalRate) : master.rentalRate;
+          const label = isFirstUser ? "First User" : "Rental Rate";
+          rentalCart.push({ id: uid(), category: master.category, name, rentalRate: rate, pricingLabel: label, quantity: 1, amount: rate, type: "TRACKED" });
+        }
+      }
+    }
+
+    if (section === "retail") {
+      const retailMatch = line.match(/^(.+?)\s+₱[\d,]+\.?\d*$/);
+      if (retailMatch && !line.startsWith("PURCHASE TOTAL")) {
+        const name = retailMatch[1].trim();
+        const master = retailItems.find(i => i.name === name);
+        if (master && !retailCart.find(c => c.name === name)) {
+          retailCart.push({ ...master });
+        }
+      }
+    }
+
+    // Payment summary restore
+    const paidMatch = line.match(/^Amount Paid:\s*₱([\d,]+\.?\d*)$/);
+    if (paidMatch) { document.getElementById("amountPaid").value = paidMatch[1].replace(/,/g, ""); }
+    const discMatch = line.match(/^Discount:\s*₱([\d,]+\.?\d*)$/);
+    if (discMatch) { document.getElementById("discountAmount").value = discMatch[1].replace(/,/g, ""); }
+  }
+
+  renderRentalItems();
+  renderRetailItems();
+  updateGrandTotal();
+}
+
+/* ══════════════════════════════════════════════
+   JOTFORM SETUP
+══════════════════════════════════════════════ */
 function setupJotform() {
   if (typeof JFCustomWidget === "undefined") return;
 
   JFCustomWidget.subscribe("submit", () => {
+    updateGrandTotal();
     JFCustomWidget.sendSubmit({ valid: true, value: window.latestSubmissionText || "" });
   });
 
-  JFCustomWidget.subscribe("ready", function(data) {
-    console.log("[JotForm ready] data:", JSON.stringify(data));
-
+  JFCustomWidget.subscribe("ready", async function(data) {
     // Extract submission ID
-    let sid = null;
-    if (data) {
-      sid = data.sid || data.submissionID || data.submissionId || null;
-      if (sid) sid = String(sid);
-    }
+    let sid = data?.sid || data?.submissionID || data?.submissionId || null;
+    if (sid) sid = String(sid);
     if (!sid) {
+      try { const m = JSON.stringify(data).match(/"sid"\s*:\s*"?(\d+)"?/); if (m) sid = m[1]; } catch(e) {}
+    }
+    if (!sid) { try { const m = window.parent.location.href.match(/\/edit\/(\d+)/); if (m) sid = m[1]; } catch(e) {} }
+    if (sid) window._jfSid = sid;
+
+    // Try restore from ready event value
+    let saved = (data?.value && data.value.trim()) ? data.value.trim() : null;
+
+    // Try localStorage
+    if (!saved && sid) saved = loadFromLocalStorage(sid);
+
+    // Try JotForm API
+    if (!saved && sid) {
       try {
-        const m = JSON.stringify(data).match(/"sid"\s*:\s*"?(\d+)"?/);
-        if (m) sid = m[1];
+        const res  = await fetch(`https://api.jotform.com/submission/${sid}?apiKey=${API_KEY}&nocache=${Date.now()}`);
+        const json = await res.json();
+        // Try to find the combined summary field — look for the field with our summary format
+        const answers = json?.content?.answers || {};
+        for (const ans of Object.values(answers)) {
+          const val = ans?.answer || "";
+          if (val && (val.includes("WEDDING ENTOURAGE PACKAGE") || val.includes("RENTAL ITEMS") || val.includes("PURCHASED ITEMS") || val.includes("GRAND TOTAL:"))) {
+            saved = val; break;
+          }
+        }
       } catch(e) {}
     }
-    if (!sid) sid = getSubmissionId();
-    console.log("[JotForm ready] sid:", sid);
-    window._jfSid = sid;
 
-    // Try localStorage first (fastest)
-    const fromStorage = sid ? loadFromLocalStorage(sid) : null;
-    if (fromStorage) {
-      console.log("[JotForm ready] restoring from localStorage");
-      restoreFromSummary(fromStorage);
-      return;
-    }
-
-    // Fetch from JotForm API (works for all submissions, old and new)
-    if (sid) {
-      console.log("[JotForm ready] fetching from JotForm API...");
-      const apiUrl = `https://api.jotform.com/submission/${sid}?apiKey=6b9359da26ff8421a11c7f9dca4553a9&nocache=${Date.now()}`;
-      fetch(apiUrl, { mode: "cors" })
-        .then(r => {
-          console.log("[JotForm API] status:", r.status);
-          return r.json();
-        })
-        .then(json => {
-          console.log("[JotForm API] responseCode:", json?.responseCode);
-          const answer = json?.content?.answers?.["110"];
-          console.log("[JotForm API] field 110:", JSON.stringify(answer));
-          const saved = (answer?.answer && answer.answer.trim()) ? answer.answer.trim()
-                      : (answer?.prettyFormat && answer.prettyFormat.trim()) ? answer.prettyFormat.trim()
-                      : null;
-          if (saved) {
-            console.log("[JotForm API] restoring:", saved.substring(0, 80));
-            saveToLocalStorage(sid, saved);
-            restoreFromSummary(saved);
-          } else {
-            console.log("[JotForm API] no value in field 110");
-            broadcastToJotform();
-          }
-        })
-        .catch(err => {
-          console.log("[JotForm API] fetch error:", err.message || err);
-          broadcastToJotform();
-        });
+    if (saved) {
+      if (dataReady) { await restoreFromSummary(saved); }
+      else { window._savedRestoreText = saved; }
     } else {
       broadcastToJotform();
     }
@@ -785,197 +1331,22 @@ function setupJotform() {
 }
 
 /* ══════════════════════════════════════════════
-   RESTORE FROM SAVED SUMMARY
-══════════════════════════════════════════════ */
-async function restoreFromSummary(text) {
-  // Wait until sheet data is ready
-  if (!dataReady) {
-    await new Promise(resolve => {
-      const check = setInterval(() => {
-        if (dataReady) { clearInterval(check); resolve(); }
-      }, 100);
-    });
-  }
-
-  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
-
-  // ── Package type ──
-  const pkgLine = lines.find(l => l.startsWith("PACKAGE:"));
-  if (pkgLine) {
-    const pkgName = pkgLine.replace("PACKAGE:", "").trim();
-    const pkgSel = document.getElementById("packageType");
-    for (const [val, name] of Object.entries(packageNames)) {
-      if (name === pkgName) { pkgSel.value = val; break; }
-    }
-    render(); // rebuild package rows for this package
-  }
-
-  // ── Package color ──
-  const colorLine = lines.find(l => l.startsWith("PACKAGE COLOR:"));
-  if (colorLine) {
-    const color = colorLine.replace("PACKAGE COLOR:", "").trim();
-    const colorSel = document.getElementById("packageColor");
-    colorSel.value = color;
-  }
-
-  // ── Package item name → key map ──
-  const pkg = document.getElementById("packageType").value;
-  const nameToKey = {};
-  for (const [k, [name]] of Object.entries(packagePrices[pkg])) {
-    nameToKey[name] = k;
-  }
-
-  // ── Parse package item lines ──
-  // Format: "Bridal Gown | #1: BGI/BGI001, #2: BGS/BGS002 x 2 @ ₱600.00 = ₱1,200.00"
-  // Or:     "Maid of Honor x 3 @ ₱280.50 = ₱841.50"
-  const addonStartIdx = lines.findIndex(l => l === "ADD-ONS:");
-  const pkgItemLines = lines.filter((l, i) => {
-    if (l.startsWith("PACKAGE:") || l.startsWith("PACKAGE COLOR:") ||
-        l.startsWith("PACKAGE SUBTOTAL:") || l.startsWith("ADD-ON SUBTOTAL:") ||
-        l.startsWith("GRAND TOTAL:") || l === "ADD-ONS:") return false;
-    if (addonStartIdx >= 0 && i > addonStartIdx) return false;
-    return l.includes(" x ") && l.includes("@");
-  });
-
-  for (const line of pkgItemLines) {
-    // Extract qty — it's the number after " x " and before " @"
-    const qtyMatch = line.match(/ x (\d+) @/);
-    if (!qtyMatch) continue;
-    const qty = parseInt(qtyMatch[1]);
-
-    // Determine item name (before any " | " or " x ")
-    const itemName = line.split(/\s*\|\s*|\s+x\s+\d+\s+@/)[0].trim();
-    const k = nameToKey[itemName];
-    if (!k) continue;
-
-    // Set quantity
-    const qtyInput = document.querySelector(`.package-qty[data-k="${k}"]`);
-    if (qtyInput) {
-      qtyInput.value = qty;
-      qtyInput.dispatchEvent(new Event("input"));
-    }
-
-    // Restore gown codes if present
-    // Format: "Bridal Gown | #1: BGI/BGI001, #2: BGS/BGS002 x 2 @..."
-    if (k === "bridal_gown" || k === "mother") {
-      const containerId = k === "bridal_gown" ? "bgPickers" : "mgPickers";
-      const allowedCats = k === "bridal_gown" ? BG_CATS : MG_CATS;
-      const labelPrefix = k === "bridal_gown" ? "Bridal Gown" : "Mother's Gown";
-
-      // Parse codes: "#1: BGI/BGI001" → { cat: "BGI", code: "BGI001" }
-      const codeMatches = [...line.matchAll(/#\d+:\s*([^/,]+)\/([^,\s]+)/g)];
-      if (codeMatches.length > 0) {
-        buildGownPickers(containerId, codeMatches.length, allowedCats, labelPrefix);
-        const sets = document.querySelectorAll(`#${containerId} .gown-picker-set`);
-        codeMatches.forEach((m, i) => {
-          const cat  = m[1].trim();
-          const code = m[2].trim();
-          const set  = sets[i];
-          if (!set) return;
-          const catSel = set.querySelector(".gown-cat-sel");
-          const itemSel = set.querySelector(".gown-item-sel");
-          if (catSel) {
-            catSel.value = cat;
-            // Populate item codes for this category
-            if (sheetData[cat]) {
-              itemSel.setOptions(sheetData[cat].map(r => r.code));
-            }
-          }
-          if (itemSel) itemSel.setValue(code);
-        });
-      }
-    }
-  }
-
-  // ── Parse add-on lines ──
-  // Format: "BGS/BGS001 x 1 | Regular: ₱1,500.00 | Less 20%: ₱1,200.00 | Subtotal: ₱1,200.00"
-  if (addonStartIdx >= 0) {
-    const addonLines = lines.filter((l, i) => {
-      if (i <= addonStartIdx) return false;
-      if (l.startsWith("PACKAGE SUBTOTAL:") || l.startsWith("ADD-ON SUBTOTAL:") ||
-          l.startsWith("GRAND TOTAL:")) return false;
-      return l.includes(" x ") && l.includes("Regular:");
-    });
-
-    for (const line of addonLines) {
-      // Parse: "CAT/CODE x QTY | Regular: ₱PRICE | ..."
-      const m = line.match(/^([^/]+)\/(\S+)\s+x\s+(\d+)\s+\|\s*Regular:\s*₱([\d,]+\.?\d*)/);
-      if (!m) continue;
-      const cat      = m[1].trim();
-      const code     = m[2].trim();
-      const qty      = parseInt(m[3]);
-      const regular  = parseFloat(m[4].replace(/,/g, ""));
-
-      // Add the row
-      addAddonRow();
-      const rows = document.querySelectorAll(".addon-row");
-      const row  = rows[rows.length - 1];
-
-      // Set category
-      const catSel = row.querySelector(".addon-cat");
-      if (catSel) {
-        catSel.value = cat;
-        catSel.dispatchEvent(new Event("change"));
-      }
-
-      // Wait a tick for item codes to populate, then set values
-      await new Promise(r => setTimeout(r, 0));
-
-      // Set item code
-      if (row._itemSearch && sheetData[cat]) {
-        row._itemSearch.setOptions(sheetData[cat].map(r => r.code));
-        const found = sheetData[cat].find(i => i.code === code);
-        row._foundItem = found || null;
-        row._itemSearch.setValue(code);
-
-        // Determine price type by matching regular price to rental vs first user
-        if (found) {
-          const ptSel = row._priceTypeSel;
-          if (found.firstUser && Math.abs(found.firstUser - regular) < 0.01) {
-            ptSel.value = "firstuser";
-          } else {
-            ptSel.value = "rental";
-          }
-          // Trigger price type update
-          const updateFn = row._updatePriceType;
-          if (updateFn) updateFn();
-          else {
-            row._activeRate = regular;
-            row.querySelector(".addon-regular-val").textContent = "₱ " + money(regular);
-          }
-        }
-      }
-
-      // Set quantity
-      if (row._qtyInput) row._qtyInput.value = qty;
-    }
-  }
-
-  calc();
-}
-
-/* ══════════════════════════════════════════════
    INIT
 ══════════════════════════════════════════════ */
 document.addEventListener("DOMContentLoaded", async () => {
-  document.getElementById("packageType").addEventListener("change", render);
-  document.getElementById("packageColor").addEventListener("change", calc);
-  document.getElementById("addAddonBtn").addEventListener("click", addAddonRow);
-
-  // Poll for JFCustomWidget — JotForm injects it asynchronously
   const waitForJotform = () => new Promise(resolve => {
     if (typeof JFCustomWidget !== "undefined") { resolve(); return; }
     const interval = setInterval(() => {
-      if (typeof JFCustomWidget !== "undefined") {
-        clearInterval(interval);
-        resolve();
-      }
+      if (typeof JFCustomWidget !== "undefined") { clearInterval(interval); resolve(); }
     }, 50);
-    // Give up after 5s and proceed without JotForm (standalone mode)
     setTimeout(() => { clearInterval(interval); resolve(); }, 5000);
   });
 
   await waitForJotform();
   setupJotform();
-  await loadAllSheets();
+
+  document.getElementById("amountPaid").addEventListener("input", updateGrandTotal);
+  document.getElementById("discountAmount").addEventListener("input", updateGrandTotal);
+
+  await loadAllData();
 });
